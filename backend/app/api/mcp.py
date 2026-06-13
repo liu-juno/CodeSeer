@@ -1,10 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from datetime import datetime
+from typing import Optional
+from uuid import UUID
 
 from app.core.database import get_db
-from app.models.models import Task, UnitTestRecord, Requirement
+from app.models.models import Task, UnitTestRecord, Requirement, Project
 from app.schemas.schemas import (
     MCPSyncTasksPayload, MCPUpdateTaskPayload, MCPSubmitTestPayload,
     TaskResponse, UnitTestRecordResponse,
@@ -72,11 +74,94 @@ async def submit_test_result(payload: MCPSubmitTestPayload, db: AsyncSession = D
 
 
 @router.get("/requirements")
-async def mcp_list_requirements(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(
-        select(Requirement).where(Requirement.status.in_(["assigned", "claimed", "in_progress"]))
+async def mcp_list_requirements(
+    assignee_id: Optional[UUID] = None,
+    db: AsyncSession = Depends(get_db),
+):
+    query = select(Requirement).where(
+        Requirement.status.in_(["assigned", "claimed", "in_progress"])
     )
+    if assignee_id:
+        query = query.where(Requirement.assignee_id == str(assignee_id))
+    result = await db.execute(query)
     return result.scalars().all()
+
+
+@router.get("/my-context")
+async def mcp_my_context(
+    assignee_id: UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """聚合返回：当前开发者有未完成需求的【项目 → 迭代】树 + 这些需求列表。
+    用于 MCP 在进入 Superpowers 头脑风暴前的项目/迭代/需求三级选择。
+    """
+    from app.models.models import Iteration
+
+    # 1. 找出开发者有活儿干的项目 id（去重）
+    proj_ids_q = await db.execute(
+        select(Requirement.project_id)
+        .where(
+            Requirement.assignee_id == str(assignee_id),
+            Requirement.status.in_(["assigned", "claimed", "in_progress"]),
+        )
+        .distinct()
+    )
+    project_ids = [row[0] for row in proj_ids_q.all()]
+
+    # 2. 加载这些项目
+    projects: list = []
+    iterations_by_project: dict = {}
+    if project_ids:
+        proj_result = await db.execute(
+            select(Project).where(Project.id.in_(project_ids)).order_by(Project.name)
+        )
+        projects = [
+            {"id": str(p.id), "name": p.name, "status": p.status.value if hasattr(p.status, 'value') else p.status}
+            for p in proj_result.scalars().all()
+        ]
+
+        # 3. 一次性拉所有相关迭代，Python 端 groupby
+        iter_result = await db.execute(
+            select(Iteration)
+            .where(Iteration.project_id.in_(project_ids))
+            .order_by(Iteration.created_at.desc())
+        )
+        for it in iter_result.scalars().all():
+            pid = str(it.project_id)
+            iterations_by_project.setdefault(pid, []).append({
+                "id": str(it.id),
+                "name": it.name,
+                "status": it.status.value if hasattr(it.status, 'value') else it.status,
+            })
+
+    # 4. 一次性拉所有可开发需求
+    reqs_result = await db.execute(
+        select(Requirement)
+        .where(
+            Requirement.assignee_id == str(assignee_id),
+            Requirement.status.in_(["assigned", "claimed", "in_progress"]),
+        )
+        .order_by(Requirement.priority.asc(), Requirement.due_date.asc())
+    )
+    assignable_requirements = [
+        {
+            "id": str(r.id),
+            "title": r.title,
+            "status": r.status.value if hasattr(r.status, 'value') else r.status,
+            "priority": r.priority.value if hasattr(r.priority, 'value') else r.priority,
+            "project_id": str(r.project_id),
+            "iteration_id": str(r.iteration_id) if r.iteration_id else None,
+            "due_date": r.due_date.isoformat() if r.due_date else None,
+        }
+        for r in reqs_result.scalars().all()
+    ]
+
+    return {
+        "developer_id": str(assignee_id),
+        "projects": projects,
+        "iterations_by_project": iterations_by_project,
+        "assignable_requirements": assignable_requirements,
+    }
 
 
 @router.get("/requirements/{requirement_id}")

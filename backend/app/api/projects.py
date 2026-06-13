@@ -64,6 +64,26 @@ async def delete_project(project_id: UUID, db: AsyncSession = Depends(get_db)):
     return {"message": "Project deleted successfully"}
 
 
+@router.get("/by-assignee/{assignee_id}", response_model=List[ProjectResponse])
+async def list_projects_by_assignee(assignee_id: UUID, db: AsyncSession = Depends(get_db)):
+    """列出指派给某用户的、状态为 assigned/claimed/in_progress 的需求所在的项目。"""
+    req_result = await db.execute(
+        select(Requirement.project_id)
+        .where(
+            Requirement.assignee_id == str(assignee_id),
+            Requirement.status.in_(["assigned", "claimed", "in_progress"]),
+        )
+        .distinct()
+    )
+    project_ids = [row[0] for row in req_result.all()]
+    if not project_ids:
+        return []
+    result = await db.execute(
+        select(Project).where(Project.id.in_(project_ids)).order_by(Project.name)
+    )
+    return result.scalars().all()
+
+
 @router.get("/{project_id}/statistics")
 async def project_statistics(project_id: UUID, db: AsyncSession = Depends(get_db)):
     project = (await db.execute(select(Project).where(Project.id == project_id))).scalar_one_or_none()

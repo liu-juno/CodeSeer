@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 from uuid import UUID
 from enum import Enum
@@ -346,6 +346,9 @@ class SkillBase(BaseModel):
 class SkillCreate(SkillBase):
     version: Optional[str] = "1.0.0"
     source: Optional[str] = "manual"
+    summary: Optional[str] = None
+    project_id: Optional[str] = None
+    knowledge_base_url: Optional[str] = None
 
 
 class SkillUpdate(BaseModel):
@@ -353,6 +356,9 @@ class SkillUpdate(BaseModel):
     description: Optional[str] = None
     prompt_template: Optional[str] = None
     status: Optional[str] = None
+    summary: Optional[str] = None
+    project_id: Optional[str] = None
+    knowledge_base_url: Optional[str] = None
 
 
 class SkillResponse(SkillBase):
@@ -360,6 +366,9 @@ class SkillResponse(SkillBase):
     version: str
     source: str
     status: str
+    summary: Optional[str] = None
+    project_id: Optional[str] = None
+    knowledge_base_url: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -484,3 +493,42 @@ class CustomFieldResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# CodeChange Schemas
+class CodeChangeCreate(BaseModel):
+    requirement_id: Optional[str] = None
+    task_id: Optional[str] = None
+    title: str
+    files_changed: int = 0
+    lines_added: int = 0
+    lines_deleted: int = 0
+    modules_affected: List[Dict[str, Any]] = []
+    exceptions: List[Dict[str, str]] = []
+    diff_content: str
+
+
+class CodeChangeResponse(BaseModel):
+    id: str
+    requirement_id: Optional[str]
+    task_id: Optional[str]
+    title: str
+    files_changed: int
+    lines_added: int
+    lines_deleted: int
+    modules_affected: List[Dict[str, Any]]
+    exceptions: List[Dict[str, str]]
+    diff_path: Optional[str]
+    diff_size: int
+    status: str
+    created_by: Optional[str]
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class CodeChangeListResponse(BaseModel):
+    requirement_id: Optional[str]
+    changes: List[CodeChangeResponse]

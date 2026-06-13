@@ -15,6 +15,22 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
 
+    # Storage backend type: ftp / oss
+    STORAGE_TYPE: str = "ftp"
+
+    # FTP configuration
+    FTP_HOST: str = "ftp.example.com"
+    FTP_PORT: int = 21
+    FTP_USERNAME: str = "admin"
+    FTP_PASSWORD: str = "password"
+    FTP_REMOTE_BASE_PATH: str = "/code-changes"
+
+    # OSS (S3-compatible) configuration
+    OSS_ENDPOINT: str = "https://s3.amazonaws.com"
+    OSS_ACCESS_KEY_ID: str = ""
+    OSS_ACCESS_KEY_SECRET: str = ""
+    OSS_BUCKET_NAME: str = "codeseer-changes"
+
     class Config:
         env_file = ".env"
         case_sensitive = True

@@ -262,6 +262,9 @@ class Skill(Base):
     version = Column(String(20), default="1.0.0")
     module_id = Column(String(36), ForeignKey("modules.id"), nullable=True)
     description = Column(Text, nullable=True)
+    summary = Column(Text, nullable=True)  # Skill 摘要
+    project_id = Column(String(36), nullable=True)  # 所属项目 ID
+    knowledge_base_url = Column(String(500), nullable=True)  # 知识库 URL
     source = Column(Enum(SkillSource), default=SkillSource.AUTO_GENERATED)
     status = Column(Enum(SkillStatus), default=SkillStatus.DRAFT)
     prompt_template = Column(Text, nullable=True)
@@ -436,3 +439,39 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+# ── 代码变更记录 ─────────────────────────────────────────────────────────────
+
+class CodeChangeStatus(str, enum.Enum):
+    PENDING = "pending"
+    STORED = "stored"
+    FAILED = "failed"
+
+
+class CodeChange(Base):
+    __tablename__ = "code_changes"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    requirement_id = Column(String(36), ForeignKey("requirements.id"), nullable=True)
+    task_id = Column(String(36), ForeignKey("tasks.id"), nullable=True)
+
+    title = Column(String(200), nullable=False)
+    files_changed = Column(Integer, default=0)
+    lines_added = Column(Integer, default=0)
+    lines_deleted = Column(Integer, default=0)
+
+    modules_affected = Column(Text, nullable=True)  # JSON
+    exceptions = Column(Text, nullable=True)        # JSON
+
+    diff_path = Column(String(500), nullable=True)
+    diff_size = Column(Integer, default=0)
+
+    status = Column(Enum(CodeChangeStatus), default=CodeChangeStatus.PENDING)
+
+    created_by = Column(String(100), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    requirement = relationship("Requirement", backref="code_changes")
+    task = relationship("Task", backref="code_changes")

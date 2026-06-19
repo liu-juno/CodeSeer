@@ -299,6 +299,24 @@ body {
   color: var(--color-text-primary);
 }
 
+.btn:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+.btn-primary:disabled {
+  background: var(--color-primary);
+  box-shadow: none;
+}
+
+.btn-secondary:disabled {
+  border-color: var(--color-sidebar-border);
+  color: var(--color-text-secondary);
+}
+
 .btn-sm {
   padding: 5px 10px;
   font-size: 12.5px;

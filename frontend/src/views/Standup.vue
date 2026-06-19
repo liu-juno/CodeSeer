@@ -57,7 +57,7 @@
         <tbody>
           <tr v-for="req in overdueReqs" :key="req.id">
             <td>
-              <router-link :to="`/requirements/${req.id}`" class="link">{{ req.title }}</router-link>
+              <router-link :to="`/requirement/${req.id}`" class="link">{{ req.title }}</router-link>
             </td>
             <td class="text-muted text-medium">
               {{ req.assignee_id ? req.assignee_id.slice(0, 8) : '未指派' }}
@@ -83,7 +83,7 @@
         <tbody>
           <tr v-for="req in unassignedReqs" :key="req.id">
             <td>
-              <router-link :to="`/requirements/${req.id}`" class="link">{{ req.title }}</router-link>
+              <router-link :to="`/requirement/${req.id}`" class="link">{{ req.title }}</router-link>
             </td>
             <td><span :class="['priority-badge', req.priority]">{{ req.priority }}</span></td>
             <td class="text-muted text-medium">{{ getIterationName(req.iteration_id) }}</td>
@@ -122,7 +122,7 @@
           <div v-for="req in dev.requirements" :key="req.id" class="req-row">
             <div class="req-row-left">
               <span :class="['req-status-dot', req.status]"></span>
-              <router-link :to="`/requirements/${req.id}`" class="req-title link">
+              <router-link :to="`/requirement/${req.id}`" class="req-title link">
                 {{ req.title }}
               </router-link>
             </div>

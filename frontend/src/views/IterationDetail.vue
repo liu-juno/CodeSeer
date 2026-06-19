@@ -1,7 +1,7 @@
 <template>
   <div class="iteration-detail">
     <div class="back-row">
-      <router-link to="/iterations" class="back-link">← 返回迭代列表</router-link>
+      <a @click.prevent="$router.back()" class="back-link" href="#">← 返回</a>
     </div>
 
     <div v-if="loading" class="card"><div class="text-muted">加载中...</div></div>
@@ -103,7 +103,7 @@
           <tbody>
             <tr v-for="req in requirements" :key="req.id">
               <td>
-                <router-link :to="`/requirements/${req.id}`" class="link">{{ req.title }}</router-link>
+                <router-link :to="`/requirement/${req.id}`" class="link">{{ req.title }}</router-link>
               </td>
               <td><span :class="['priority-badge', req.priority]">{{ req.priority }}</span></td>
               <td><span :class="['status-badge', req.status]">{{ statusText(req.status) }}</span></td>
@@ -154,7 +154,6 @@ const releaseIteration = async () => {
   if (!confirm('发布迭代将归档所有该迭代下需求的草稿文档，无法撤销。确认发布？')) return
   releasing.value = true
   try {
-    const res = await fetch(`/api/iterations/${route.params.id}/release`, { method: 'POST' })
     const res = await iterationsApi.release(route.params.id as string)
     if (res.data.success) {
       alert(`发布成功。归档了 ${res.data.archived_documents} 份文档。`)

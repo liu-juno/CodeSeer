@@ -59,7 +59,7 @@
         <div v-else class="requirement-list">
           <div v-for="req in requirements.slice(0, 6)" :key="req.id" class="requirement-item">
             <div class="requirement-header">
-              <router-link :to="`/requirements/${req.id}`" class="requirement-title link">
+              <router-link :to="`/requirement/${req.id}`" class="requirement-title link">
                 {{ req.title }}
               </router-link>
               <span :class="['status-badge', req.status]">{{ statusText(req.status) }}</span>
@@ -93,7 +93,7 @@
           <tbody>
             <tr v-for="req in pendingRequirements" :key="req.id">
               <td>
-                <router-link :to="`/requirements/${req.id}`" class="link">{{ req.title }}</router-link>
+                <router-link :to="`/requirement/${req.id}`" class="link">{{ req.title }}</router-link>
               </td>
               <td>
                 <span :class="['priority-badge', req.priority]">{{ req.priority }}</span>

@@ -1,7 +1,7 @@
 <template>
   <div class="requirement-detail">
     <div class="back-row">
-      <router-link to="/requirements" class="back-link">← 返回需求列表</router-link>
+      <a @click.prevent="$router.back()" class="back-link" href="#">← 返回</a>
     </div>
 
     <div v-if="loading" class="card"><div class="text-muted">加载中...</div></div>
@@ -293,20 +293,21 @@
       </div>
       <div class="modal-body">
         <div class="form-group" style="margin-bottom:0">
-          <label class="form-label">开发者标识 <span class="required">*</span></label>
-          <input
-            v-model="assigneeInput"
-            class="form-input"
-            placeholder="输入开发者名称或 ID（如 dev@company.com）"
-            autofocus
-            @keyup.enter="assigneeInput.trim() && doAssign()"
-          />
-          <p class="form-hint">该标识将作为开发者通过 MCP 接入时的身份凭证</p>
+          <label class="form-label">选择开发者 <span class="required">*</span></label>
+          <select v-model="assigneeInput" class="form-input">
+            <option value="">-- 请选择 --</option>
+            <option v-for="dev in developers" :key="dev.id" :value="dev.id">
+              {{ dev.name }}（{{ dev.email }}）
+            </option>
+          </select>
+          <p v-if="developers.length === 0" class="form-hint" style="color:#e67e22">
+            暂无开发者账号，请先在用户管理中创建
+          </p>
         </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" @click="showAssignDialog = false">取消</button>
-        <button class="btn btn-primary" :disabled="!assigneeInput.trim() || transitioning" @click="doAssign">
+        <button class="btn btn-primary" :disabled="!assigneeInput || transitioning" @click="doAssign">
           {{ transitioning ? '指派中...' : '确认指派' }}
         </button>
       </div>
@@ -317,7 +318,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { requirementsApi, iterationsApi, tasksApi, testRecordsApi, documentsApi } from '@/api'
+import { requirementsApi, iterationsApi, tasksApi, testRecordsApi, documentsApi, usersApi } from '@/api'
 
 const route = useRoute()
 const requirement = ref<any>(null)
@@ -334,6 +335,7 @@ const transitioning = ref(false)
 const activeTab = ref('info')
 const showAssignDialog = ref(false)
 const assigneeInput = ref('')
+const developers = ref<any[]>([])
 
 const tabs = [
   { key: 'info', label: '基本信息' },
@@ -471,10 +473,10 @@ const doTransition = async (action: string) => {
 }
 
 const doAssign = async () => {
-  if (!assigneeInput.value.trim()) return
+  if (!assigneeInput.value) return
   transitioning.value = true
   try {
-    const res = await requirementsApi.assign(route.params.id as string, assigneeInput.value.trim())
+    const res = await requirementsApi.assign(route.params.id as string, assigneeInput.value)
     requirement.value = res.data
     showAssignDialog.value = false
     assigneeInput.value = ''
@@ -488,12 +490,14 @@ const doAssign = async () => {
 const fetchData = async () => {
   loading.value = true
   try {
-    const [reqRes, iterRes] = await Promise.all([
+    const [reqRes, iterRes, usersRes] = await Promise.all([
       requirementsApi.get(route.params.id as string),
       iterationsApi.list(),
+      usersApi.list(),
     ])
     requirement.value = reqRes.data
     iterations.value = iterRes.data
+    developers.value = usersRes.data.filter((u: any) => u.role === 'DEVELOPER' || u.role === 'developer')
   } catch (e) {
     console.error(e)
   } finally {

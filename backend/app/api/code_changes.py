@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
+import json
 
 from app.core.database import get_db
 from app.models.models import CodeChange, CodeChangeStatus
@@ -67,7 +68,28 @@ async def list_code_changes(
     result = await db.execute(query)
     changes = result.scalars().all()
 
+    # 转换为响应模型以正确序列化 JSON 字段
+    response_changes = []
+    for change in changes:
+        response_changes.append(CodeChangeResponse(
+            id=change.id,
+            requirement_id=change.requirement_id,
+            task_id=change.task_id,
+            title=change.title,
+            files_changed=change.files_changed,
+            lines_added=change.lines_added,
+            lines_deleted=change.lines_deleted,
+            modules_affected=json.loads(change.modules_affected) if change.modules_affected else [],
+            exceptions=json.loads(change.exceptions) if change.exceptions else [],
+            diff_path=change.diff_path,
+            diff_size=change.diff_size,
+            status=change.status.value,
+            created_by=change.created_by,
+            created_at=change.created_at,
+            updated_at=change.updated_at,
+        ))
+
     return {
-        "changes": changes,
+        "changes": response_changes,
         "total": len(changes),
     }

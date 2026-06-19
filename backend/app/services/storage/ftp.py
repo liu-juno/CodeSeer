@@ -25,12 +25,14 @@ class FTPStorageBackend(StorageBackend):
         self._client = None
 
     async def save(self, data: bytes, path: str) -> str:
-        """保存文件到 FTP"""
-        full_path = f"{self.base_path}/{path}"
-        logger.info(f"Saving to FTP: {full_path}, size: {len(data)} bytes")
-        # 使用本地文件系统模拟 FTP 操作（实际环境使用 aiopyftp）
+        """保存文件到 FTP（使用本地文件系统模拟）"""
+        # 使用本地临时目录模拟 FTP
         import os
         import aiofiles
+
+        local_base = "/tmp/codeseer-storage"
+        full_path = f"{local_base}/{path}"
+        logger.info(f"Saving to FTP (local): {full_path}, size: {len(data)} bytes")
 
         # 确保目录存在
         dir_path = os.path.dirname(full_path)
@@ -43,20 +45,25 @@ class FTPStorageBackend(StorageBackend):
         return full_path
 
     async def load(self, path: str) -> bytes:
-        """从 FTP 加载文件"""
-        full_path = f"{self.base_path}/{path}"
-        logger.info(f"Loading from FTP: {full_path}")
+        """从 FTP 加载文件（使用本地文件系统模拟）"""
+        import os
         import aiofiles
+
+        local_base = "/tmp/codeseer-storage"
+        full_path = f"{local_base}/{path}"
+        logger.info(f"Loading from FTP (local): {full_path}")
 
         async with aiofiles.open(full_path, 'rb') as f:
             data = await f.read()
         return data
 
     async def delete(self, path: str) -> bool:
-        """从 FTP 删除文件"""
-        full_path = f"{self.base_path}/{path}"
-        logger.info(f"Deleting from FTP: {full_path}")
+        """从 FTP 删除文件（使用本地文件系统模拟）"""
         import os
+
+        local_base = "/tmp/codeseer-storage"
+        full_path = f"{local_base}/{path}"
+        logger.info(f"Deleting from FTP (local): {full_path}")
 
         if os.path.exists(full_path):
             os.remove(full_path)
@@ -64,7 +71,9 @@ class FTPStorageBackend(StorageBackend):
         return False
 
     async def exists(self, path: str) -> bool:
-        """检查 FTP 文件是否存在"""
-        full_path = f"{self.base_path}/{path}"
+        """检查 FTP 文件是否存在（使用本地文件系统模拟）"""
         import os
+
+        local_base = "/tmp/codeseer-storage"
+        full_path = f"{local_base}/{path}"
         return os.path.exists(full_path)

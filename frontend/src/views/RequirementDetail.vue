@@ -554,10 +554,10 @@ onMounted(async () => {
 .back-row { margin-bottom: 16px; }
 
 .back-link {
-  color: #6b7280; text-decoration: none;
+  color: var(--color-text-secondary); text-decoration: none;
   font-size: 13.5px; font-weight: 500; transition: color 0.15s;
 }
-.back-link:hover { color: #6366f1; }
+.back-link:hover { color: var(--color-primary); }
 
 .detail-header-card {
   border-bottom-left-radius: 0; border-bottom-right-radius: 0; border-bottom: none;
@@ -573,7 +573,7 @@ onMounted(async () => {
 }
 
 .detail-title {
-  font-size: 20px; font-weight: 700; color: #111827;
+  font-size: 20px; font-weight: 700; color: var(--color-text-primary);
   letter-spacing: -0.3px; line-height: 1.3;
 }
 

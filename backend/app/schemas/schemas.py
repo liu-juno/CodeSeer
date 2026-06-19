@@ -1,6 +1,6 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import Optional, List, Dict, Any
-from datetime import datetime
+from datetime import datetime, date
 from uuid import UUID
 from enum import Enum
 
@@ -75,21 +75,21 @@ class IterationBase(BaseModel):
 
 class IterationCreate(IterationBase):
     project_id: UUID
-    planned_release_date: Optional[datetime] = None
+    planned_release_date: Optional[date] = None
 
 
 class IterationUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     status: Optional[IterationStatus] = None
-    planned_release_date: Optional[datetime] = None
+    planned_release_date: Optional[date] = None
 
 
 class IterationResponse(IterationBase):
     id: UUID
     project_id: UUID
     status: IterationStatus
-    planned_release_date: Optional[datetime] = None
+    planned_release_date: Optional[date] = None
     actual_release_date: Optional[datetime] = None
     created_by: Optional[UUID] = None
     created_at: datetime
@@ -496,6 +496,9 @@ class CustomFieldResponse(BaseModel):
 
 
 # CodeChange Schemas
+import json
+
+
 class CodeChangeCreate(BaseModel):
     requirement_id: Optional[str] = None
     task_id: Optional[str] = None
@@ -524,6 +527,13 @@ class CodeChangeResponse(BaseModel):
     created_by: Optional[str]
     created_at: datetime
     updated_at: datetime
+
+    @field_validator('modules_affected', 'exceptions', mode='before')
+    @classmethod
+    def parse_json_list(cls, v):
+        if isinstance(v, str):
+            return json.loads(v)
+        return v
 
     class Config:
         from_attributes = True

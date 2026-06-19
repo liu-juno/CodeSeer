@@ -15,6 +15,11 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
 
+    # Access Token
+    ACCESS_TOKEN_SECRET_KEY: str = "change-me-in-production"
+    ACCESS_TOKEN_EXPIRY_DAYS: int = 30
+    ACCESS_TOKEN_LENGTH: int = 32
+
     # Storage backend type: ftp / oss
     STORAGE_TYPE: str = "ftp"
 

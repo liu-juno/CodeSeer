@@ -62,6 +62,10 @@ const switchTab = (path: string) => {
 const goToParent = () => {
   if (route.path.includes('/project/')) {
     router.push('/projects')
+  } else if (route.path.includes('/iteration/')) {
+    router.push('/projects')
+  } else if (route.path.includes('/requirement/')) {
+    router.push('/projects')
   }
 }
 </script>

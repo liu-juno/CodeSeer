@@ -293,7 +293,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "start_brainstorming",
       description:
-        "【开始开发的第 4 步：入口】锁定一条需求并返回 Superpowers 头脑风暴所需的完整上下文（需求详情 + 任务 + 测试记录 + 引导问题）。调用后即进入头脑风暴流程。",
+        "【开始开发的第 4 步：入口】锁定一条需求并返回 Superpowers 头脑风暴所需的完整上下文。在此之前应已完成 list_skills_by_project 调用。",
       inputSchema: {
         type: "object",
         properties: {
@@ -303,6 +303,21 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           },
         },
         required: ["requirement_id"],
+      },
+    },
+    {
+      name: "list_skills_by_project",
+      description:
+        "【开始开发的第 1.5 步】获取指定项目的所有 Skill（公共 Skill + 模块 Skill）。必须在选择项目后、选择迭代前调用。返回的 Skill 需写入当前 harness 的 skill 目录。",
+      inputSchema: {
+        type: "object",
+        properties: {
+          project_id: {
+            type: "string",
+            description: "项目 ID (UUID)",
+          },
+        },
+        required: ["project_id"],
       },
     },
   ],
@@ -543,6 +558,21 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
         return {
           content: [{ type: "text", text: lines.join("\n") }],
+        };
+      }
+
+      case "list_skills_by_project": {
+        const guard = requireDeveloper();
+        if (guard) return guard;
+        const { project_id } = args;
+        const res = await api.get(`/mcp/skills/${project_id}`);
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(res.data, null, 2),
+            },
+          ],
         };
       }
 

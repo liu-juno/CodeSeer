@@ -40,7 +40,7 @@
       <!-- Stats -->
       <div class="stats-grid">
         <div class="stat-card">
-          <div class="stat-icon indigo">◇</div>
+          <div class="stat-icon blue">◇</div>
           <div class="stat-body">
             <div class="stat-value">{{ stats.total_requirements || 0 }}</div>
             <div class="stat-label">总需求</div>
@@ -185,11 +185,11 @@ onMounted(fetchData)
 
 <style scoped>
 .back-row { margin-bottom: 16px; }
-.back-link { color: #6b7280; text-decoration: none; font-size: 13.5px; font-weight: 500; }
-.back-link:hover { color: #6366f1; }
+.back-link { color: var(--color-text-secondary); text-decoration: none; font-size: 13.5px; font-weight: 500; }
+.back-link:hover { color: var(--color-primary); }
 
 .header-card { padding: 24px; }
-.detail-title { font-size: 22px; font-weight: 700; color: #111827; letter-spacing: -0.3px; }
+.detail-title { font-size: 22px; font-weight: 700; color: var(--color-text-primary); letter-spacing: -0.3px; }
 
 .dist-bar {
   display: flex; height: 8px; border-radius: 4px; overflow: hidden;

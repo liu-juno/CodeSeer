@@ -12,6 +12,15 @@
         <router-link to="/dashboard" class="nav-item" title="仪表盘">
           <span class="nav-icon">📊</span>
         </router-link>
+        <router-link to="/standup" class="nav-item" title="早会视图">
+          <span class="nav-icon">☀️</span>
+        </router-link>
+        <router-link to="/mcp-config" class="nav-item" title="MCP 配置">
+          <span class="nav-icon">🔌</span>
+        </router-link>
+        <router-link to="/documents" class="nav-item" title="文档管理">
+          <span class="nav-icon">📄</span>
+        </router-link>
         <router-link to="/settings" class="nav-item" title="设置">
           <span class="nav-icon">⚙️</span>
         </router-link>
@@ -19,7 +28,7 @@
     </aside>
 
     <main class="main-content">
-      <header class="topbar">
+      <header v-if="showTopbar" class="topbar">
         <div class="topbar-left">
           <span class="topbar-title">{{ pageTitle }}</span>
           <span class="topbar-badge">AI Platform</span>
@@ -32,7 +41,7 @@
           </div>
         </div>
       </header>
-      <TopTab />
+      <TopTab v-if="showTopTab" />
       <div class="content">
         <router-view />
       </div>
@@ -51,6 +60,14 @@ const router = useRouter()
 const authStore = useAuthStore()
 
 const userInitial = computed(() => authStore.user?.name?.[0]?.toUpperCase() ?? '?')
+
+const showTopbar = computed(() => {
+  return route.path.startsWith('/project/') || route.path.startsWith('/iteration/') || route.path.startsWith('/requirement/')
+})
+
+const showTopTab = computed(() => {
+  return route.path.startsWith('/project/') || route.path.startsWith('/iteration/') || route.path.startsWith('/requirement/')
+})
 
 function handleLogout() {
   authStore.logout()
@@ -86,7 +103,7 @@ const pageTitle = computed(() => {
   background: none;
   border: none;
   cursor: pointer;
-  color: #9ca3af;
+  color: var(--color-text-secondary);
   font-size: 16px;
   padding: 2px 6px;
   border-radius: 4px;

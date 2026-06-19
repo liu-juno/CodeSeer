@@ -12,7 +12,7 @@ _SKILLS_DIR = Path(__file__).parent.parent.parent.parent / "aicode" / "skills"
 from app.core.database import get_db
 from app.api.mcp_tokens import verify_token
 from app.models.models import (
-    Iteration, Project, Requirement, RequirementStatus, Task,
+    Document, Iteration, Project, Requirement, RequirementStatus, Task,
 )
 
 router = APIRouter(prefix="/mcp/http", tags=["mcp-http"])
@@ -138,6 +138,24 @@ TOOLS = [
                 "action": {"type": "string", "description": "目标状态，如 claimed / in_progress / pending_review"},
             },
             "required": ["requirement_id", "action"],
+        },
+    },
+    {
+        "name": "create_document",
+        "description": "将设计文档上传到平台，关联到指定需求",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "requirement_id": {"type": "string", "description": "需求 ID"},
+                "title": {"type": "string", "description": "文档标题"},
+                "content": {"type": "string", "description": "文档内容（Markdown）"},
+                "document_type": {
+                    "type": "string",
+                    "description": "文档类型：design / analysis / api / other",
+                    "default": "design",
+                },
+            },
+            "required": ["requirement_id", "title", "content"],
         },
     },
     {
@@ -289,6 +307,7 @@ async def _sync_tasks(args: dict, user, db: AsyncSession) -> dict:
     for t in existing.scalars().all():
         await db.delete(t)
 
+    created = []
     for i, td in enumerate(tasks_data):
         t = Task(
             requirement_id=req_id,
@@ -297,8 +316,72 @@ async def _sync_tasks(args: dict, user, db: AsyncSession) -> dict:
             order=i,
         )
         db.add(t)
+        created.append(t)
     await db.commit()
-    return _text(f"已同步 {len(tasks_data)} 个任务到需求 {req_id}")
+    for t in created:
+        await db.refresh(t)
+
+    task_lines = "\n".join(
+        f"  {i+1}. id={t.id}  [{t.status.value}] {t.title}"
+        for i, t in enumerate(created)
+    )
+    return _text(
+        f"已同步 {len(created)} 个任务到需求 {req_id}，任务列表（含 ID，执行时用于更新状态）：\n{task_lines}\n\n"
+        f"执行每个任务时：\n"
+        f"  开始前调用 update_task_status(task_id=<id>, status=\"in_progress\")\n"
+        f"  完成后调用 update_task_status(task_id=<id>, status=\"completed\")"
+    )
+
+
+async def _start_brainstorming(args: dict, user, db: AsyncSession) -> dict:
+    req_id = args.get("requirement_id")
+    if not req_id:
+        return None
+    result = await db.execute(select(Requirement).where(Requirement.id == req_id))
+    req = result.scalar_one_or_none()
+    if not req:
+        return {"__not_found__": True}
+
+    tasks_result = await db.execute(
+        select(Task).where(Task.requirement_id == req_id).order_by(Task.order)
+    )
+    tasks = tasks_result.scalars().all()
+
+    status = req.status.value if hasattr(req.status, "value") else req.status
+    priority = req.priority.value if hasattr(req.priority, "value") else req.priority
+    task_lines = "\n".join(
+        f"  {i+1}. [{t.status.value if hasattr(t.status, 'value') else t.status}] {t.title}"
+        for i, t in enumerate(tasks)
+    ) or "  （暂无任务）"
+
+    context = (
+        f"## 需求上下文\n\n"
+        f"**标题**: {req.title}\n"
+        f"**优先级**: {priority}\n"
+        f"**状态**: {status}\n"
+        f"**描述**:\n{req.description or '（无描述）'}\n\n"
+        f"**验收标准**:\n{req.acceptance_criteria or '（无验收标准）'}\n\n"
+        f"**现有任务**:\n{task_lines}\n"
+    )
+
+    instruction = (
+        f"需求已锁定（id={req_id}）。\n\n"
+        f"{context}\n"
+        f"---\n"
+        f"## 后续执行规则（贯穿整个工作流，请始终牢记）\n\n"
+        f"**步骤 1** — 立即调用 `superpowers:brainstorming` 技能，将以上需求作为开发目标。\n\n"
+        f"**步骤 2** — brainstorming 结束后调用 `superpowers:writing-plans` 技能生成实现计划。\n\n"
+        f"**步骤 3** — writing-plans **完成后**（计划文件写入磁盘），立即按顺序自动执行以下三步，无需用户触发：\n\n"
+        f"3a. 上传 brainstorming 生成的**设计文档**（`docs/superpowers/specs/` 下）：\n"
+        f"```\ncreate_document(requirement_id=\"{req_id}\", title=<设计文档标题>, content=<Markdown内容>, document_type=\"design\")\n```\n\n"
+        f"3b. 上传 writing-plans 生成的**计划文档**（`docs/superpowers/plans/` 下）：\n"
+        f"```\ncreate_document(requirement_id=\"{req_id}\", title=<计划文档标题>, content=<Markdown内容>, document_type=\"analysis\")\n```\n\n"
+        f"3c. 从计划文档中提取所有 Task，同步任务列表：\n"
+        f"```\nsync_tasks(requirement_id=\"{req_id}\", tasks=[{{\"title\":\"...\",\"description\":\"...\"}},...]) \n```\n\n"
+        f"三步完成后告知用户：✅ 设计文档、计划文档和任务已同步到 CodeSeer 平台。\n\n"
+        f"**步骤 4** — 用户选择执行方式后，按 TDD 节奏实现每个任务。"
+    )
+    return _text(instruction)
 
 
 async def _update_requirement_status(args: dict, user, db: AsyncSession) -> dict:
@@ -320,6 +403,29 @@ async def _update_requirement_status(args: dict, user, db: AsyncSession) -> dict
     req.updated_at = datetime.utcnow()
     await db.commit()
     return _text(f"需求 {req_id} 状态已更新：{current} → {action}")
+
+
+async def _create_document(args: dict, user, db: AsyncSession) -> dict:
+    req_id = args.get("requirement_id")
+    title = args.get("title", "").strip()
+    content = args.get("content", "")
+    doc_type = args.get("document_type", "design")
+    if not req_id or not title:
+        return None
+    result = await db.execute(select(Requirement).where(Requirement.id == req_id))
+    if not result.scalar_one_or_none():
+        return {"__not_found__": True}
+    doc = Document(
+        requirement_id=req_id,
+        title=title,
+        content=content,
+        document_type=doc_type,
+        created_by=str(user.id),
+    )
+    db.add(doc)
+    await db.commit()
+    await db.refresh(doc)
+    return _text(f"设计文档已上传（id={doc.id}）：{title}")
 
 
 _COMMANDS_DIR = Path(__file__).parent.parent.parent.parent / "aicode" / "commands"
@@ -400,9 +506,11 @@ _TOOL_HANDLERS = {
     "list_my_projects": _list_my_projects,
     "list_iterations": _list_iterations,
     "list_my_requirements": _list_my_requirements,
+    "start_brainstorming": _start_brainstorming,
     "get_requirement_detail": _get_requirement_detail,
     "sync_tasks": _sync_tasks,
     "update_requirement_status": _update_requirement_status,
+    "create_document": _create_document,
     "setup_dev_environment": _setup_dev_environment,
 }
 

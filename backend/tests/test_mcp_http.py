@@ -98,9 +98,10 @@ class TestMcpHttpInitialize:
         assert "serverInfo" in data["result"]
         assert "capabilities" in data["result"]
         assert "instructions" in data["result"]
-        # initialize 只安装命令，不做完整环境初始化
-        assert "setup_cs_env" in data["result"]["instructions"]
-        assert ".claude/commands" in data["result"]["instructions"]
+        instructions = data["result"]["instructions"]
+        assert "setup_cs_env" in instructions
+        assert "cwd" in instructions          # 明确指向当前工作目录
+        assert "<cwd>" in instructions        # 以 <cwd> 占位符标注项目路径
 
     @pytest.mark.asyncio
     async def test_initialized_notification_returns_empty(self, client, token_and_user):

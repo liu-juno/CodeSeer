@@ -3,64 +3,23 @@
   <div v-else class="app-container">
     <aside class="sidebar">
       <div class="logo">
-        <div class="logo-icon">⚡</div>
-        <span class="logo-text">CodeSeer</span>
+        <div class="logo-icon">CS</div>
       </div>
-
       <nav class="nav">
-        <span class="nav-section-label">主菜单</span>
-        <router-link to="/" class="nav-item" exact-active-class="router-link-active">
-          <span class="nav-icon">◈</span>
-          <span>工作台</span>
+        <router-link to="/projects" class="nav-item" title="项目管理">
+          <span class="nav-icon">📁</span>
         </router-link>
-        <router-link to="/requirements" class="nav-item">
-          <span class="nav-icon">◇</span>
-          <span>需求</span>
+        <router-link to="/iterations" class="nav-item" title="迭代管理">
+          <span class="nav-icon">🔄</span>
         </router-link>
-        <router-link to="/iterations" class="nav-item">
-          <span class="nav-icon">↻</span>
-          <span>迭代</span>
+        <router-link to="/requirements" class="nav-item" title="需求管理">
+          <span class="nav-icon">📋</span>
         </router-link>
-        <router-link to="/projects" class="nav-item">
-          <span class="nav-icon">▦</span>
-          <span>项目</span>
+        <router-link to="/dashboard" class="nav-item" title="仪表盘">
+          <span class="nav-icon">📊</span>
         </router-link>
-
-        <div class="nav-divider"></div>
-        <span class="nav-section-label">AI 流程</span>
-        <router-link to="/standup" class="nav-item">
-          <span class="nav-icon">◎</span>
-          <span>早会视图</span>
-        </router-link>
-        <router-link to="/mcp-config" class="nav-item">
-          <span class="nav-icon">⬡</span>
-          <span>MCP 配置</span>
-        </router-link>
-
-        <div class="nav-divider"></div>
-        <span class="nav-section-label">知识库</span>
-        <router-link to="/documents" class="nav-item">
-          <span class="nav-icon">▤</span>
-          <span>文档管理</span>
-        </router-link>
-        <router-link to="/modules" class="nav-item">
-          <span class="nav-icon">⬡</span>
-          <span>模块知识库</span>
-        </router-link>
-
-        <div class="nav-divider"></div>
-        <span class="nav-section-label">系统</span>
-        <router-link to="/webhooks" class="nav-item">
-          <span class="nav-icon">⌬</span>
-          <span>Webhook 配置</span>
-        </router-link>
-        <router-link to="/users" class="nav-item">
-          <span class="nav-icon">☉</span>
-          <span>用户与角色</span>
-        </router-link>
-        <router-link to="/settings" class="nav-item">
-          <span class="nav-icon">⚙</span>
-          <span>系统设置</span>
+        <router-link to="/settings" class="nav-item" title="设置">
+          <span class="nav-icon">⚙️</span>
         </router-link>
       </nav>
     </aside>
@@ -125,6 +84,10 @@ const pageTitle = computed(() => {
 </script>
 
 <style scoped>
+.nav-icon {
+  font-size: 18px;
+}
+
 .logout-btn {
   background: none;
   border: none;

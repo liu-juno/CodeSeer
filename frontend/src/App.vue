@@ -9,6 +9,12 @@
         <router-link to="/projects" class="nav-item" title="项目管理">
           <span class="nav-icon">📁</span>
         </router-link>
+        <router-link to="/iterations" class="nav-item" title="迭代管理">
+          <span class="nav-icon">🔄</span>
+        </router-link>
+        <router-link to="/requirements" class="nav-item" title="需求管理">
+          <span class="nav-icon">📋</span>
+        </router-link>
         <router-link to="/dashboard" class="nav-item" title="仪表盘">
           <span class="nav-icon">📊</span>
         </router-link>
@@ -20,6 +26,15 @@
         </router-link>
         <router-link to="/documents" class="nav-item" title="文档管理">
           <span class="nav-icon">📄</span>
+        </router-link>
+        <router-link to="/modules" class="nav-item" title="模块知识库">
+          <span class="nav-icon">🧩</span>
+        </router-link>
+        <router-link to="/webhooks" class="nav-item" title="Webhook 配置">
+          <span class="nav-icon">🪝</span>
+        </router-link>
+        <router-link to="/users" class="nav-item" title="用户与角色">
+          <span class="nav-icon">👥</span>
         </router-link>
         <router-link to="/settings" class="nav-item" title="设置">
           <span class="nav-icon">⚙️</span>
@@ -62,7 +77,7 @@ const authStore = useAuthStore()
 const userInitial = computed(() => authStore.user?.name?.[0]?.toUpperCase() ?? '?')
 
 const showTopbar = computed(() => {
-  return route.path.startsWith('/project/') || route.path.startsWith('/iteration/') || route.path.startsWith('/requirement/')
+  return !['/', '/login', '/projects', '/iterations', '/requirements', '/dashboard', '/standup', '/mcp-config', '/documents', '/modules', '/webhooks', '/users', '/settings'].includes(route.path)
 })
 
 const showTopTab = computed(() => {
@@ -77,6 +92,8 @@ function handleLogout() {
 const pageTitle = computed(() => {
   const map: Record<string, string> = {
     '/projects': '项目管理',
+    '/iterations': '迭代管理',
+    '/requirements': '需求管理',
     '/dashboard': '仪表盘',
     '/standup': '早会视图',
     '/mcp-config': 'MCP 配置',

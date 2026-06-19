@@ -1,55 +1,50 @@
 <template>
   <div class="requirements-page">
+    <!-- Page Header Toolbar -->
     <div class="page-header">
-      <div>
+      <div class="header-left">
         <h1 class="page-title">需求管理</h1>
-        <p class="page-subtitle">管理产品需求，追踪开发全流程</p>
+        <span class="text-muted text-medium" style="margin-left:12px;">{{ displayedRequirements.length }} 条需求</span>
       </div>
-      <button class="btn btn-primary" @click="openWizard">
-        <span>＋</span> 创建需求
-      </button>
+      <div class="header-right">
+        <div class="search-box">
+          <span class="search-icon">⌕</span>
+          <input v-model="filter.search" type="text" class="form-input" placeholder="搜索需求..." style="width:200px; padding-left:32px;" />
+        </div>
+        <select v-model="filter.status" class="form-input" style="width:120px">
+          <option value="">全部状态</option>
+          <option value="draft">草稿</option>
+          <option value="pending_analysis">待分析</option>
+          <option value="analyzed">已分析</option>
+          <option value="assigned">已指派</option>
+          <option value="claimed">已领取</option>
+          <option value="in_progress">开发中</option>
+          <option value="pending_review">待评审</option>
+          <option value="review_approved">评审通过</option>
+          <option value="review_rejected">评审驳回</option>
+          <option value="completed">已完成</option>
+        </select>
+        <select v-model="filter.priority" class="form-input" style="width:100px">
+          <option value="">全部优先级</option>
+          <option value="P0">P0</option>
+          <option value="P1">P1</option>
+          <option value="P2">P2</option>
+          <option value="P3">P3</option>
+        </select>
+        <button class="btn btn-primary" @click="openWizard">
+          <span>＋</span> 创建需求
+        </button>
+      </div>
     </div>
 
-    <!-- Filters -->
-    <div class="filters-bar mb-16">
-      <div class="search-wrap">
-        <span class="search-icon">⌕</span>
-        <input
-          v-model="filter.search"
-          class="form-input search-input"
-          placeholder="搜索需求标题..."
-          style="padding-left:32px; width:220px;"
-        />
-      </div>
-      <select v-model="filter.status" class="form-input" style="width:140px">
-        <option value="">全部状态</option>
-        <option value="draft">草稿</option>
-        <option value="pending_analysis">待分析</option>
-        <option value="analyzed">已分析</option>
-        <option value="assigned">已指派</option>
-        <option value="claimed">已领取</option>
-        <option value="in_progress">开发中</option>
-        <option value="pending_review">待评审</option>
-        <option value="review_approved">评审通过</option>
-        <option value="review_rejected">评审驳回</option>
-        <option value="completed">已完成</option>
-      </select>
-      <select v-model="filter.priority" class="form-input" style="width:120px">
-        <option value="">全部优先级</option>
-        <option value="P0">P0 紧急</option>
-        <option value="P1">P1 高</option>
-        <option value="P2">P2 中</option>
-        <option value="P3">P3 低</option>
-      </select>
-      <select v-model="filter.iterationId" class="form-input" style="width:180px">
-        <option value="">全部迭代</option>
-        <option v-for="iter in iterations" :key="iter.id" :value="iter.id">
-          {{ iter.name }}
-        </option>
-      </select>
-      <span class="filter-count text-muted text-small">{{ displayedRequirements.length }} 条</span>
+    <!-- Batch Actions Bar -->
+    <div v-if="selected.length > 0" class="batch-bar">
+      <span class="text-medium">已选择 <strong>{{ selected.length }}</strong> 项</span>
+      <button class="btn btn-ghost btn-sm" @click="selected = []">清除</button>
+      <button class="btn btn-ghost btn-sm" style="color:#ef4444;" @click="batchDelete">删除</button>
     </div>
 
+    <!-- Table -->
     <div class="card" style="padding:0; overflow:hidden;">
       <div v-if="loading" class="empty-state">
         <div class="empty-state-text text-muted">加载中...</div>
@@ -57,17 +52,24 @@
       <table v-else class="table">
         <thead>
           <tr>
+            <th style="width:40px;">
+              <input type="checkbox" @change="toggleSelectAll" :checked="isAllSelected" />
+            </th>
             <th>需求标题</th>
-            <th>优先级</th>
-            <th>迭代</th>
-            <th>状态</th>
-            <th>创建时间</th>
+            <th style="width:80px;">优先级</th>
+            <th style="width:120px;">迭代</th>
+            <th style="width:100px;">状态</th>
+            <th style="width:120px;">创建时间</th>
+            <th style="width:100px; text-align:right;">操作</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="req in displayedRequirements" :key="req.id">
+          <tr v-for="req in displayedRequirements" :key="req.id" :class="{ 'row-selected': selected.includes(req.id) }">
             <td>
-              <router-link :to="`/requirement/${req.id}`" class="link">
+              <input type="checkbox" :value="req.id" v-model="selected" />
+            </td>
+            <td>
+              <router-link :to="`/requirement/${req.id}`" class="link" style="font-weight:600;">
                 {{ req.title }}
               </router-link>
             </td>
@@ -79,9 +81,15 @@
               <span :class="['status-badge', req.status]">{{ statusText(req.status) }}</span>
             </td>
             <td class="text-muted text-small">{{ formatDate(req.created_at) }}</td>
+            <td style="text-align:right;">
+              <div class="action-btns">
+                <router-link :to="`/requirement/${req.id}`" class="btn btn-ghost btn-sm">查看</router-link>
+                <button class="btn btn-ghost btn-sm" @click="deleteRequirement(req.id)" style="color:#ef4444;">删除</button>
+              </div>
+            </td>
           </tr>
           <tr v-if="displayedRequirements.length === 0">
-            <td colspan="5">
+            <td colspan="7">
               <div class="empty-state">
                 <div class="empty-state-icon">◇</div>
                 <div class="empty-state-text">暂无需求，点击「创建需求」开始</div>
@@ -92,7 +100,7 @@
       </table>
     </div>
 
-    <!-- ── Wizard Modal ─────────────────────────────────── -->
+    <!-- Create Wizard Modal -->
     <div v-if="showWizard" class="modal-overlay" @click.self="closeWizard">
       <div class="modal" style="width:600px;">
         <div class="modal-header">
@@ -117,31 +125,21 @@
           <div v-if="currentStep === 0">
             <div class="form-group">
               <label class="form-label">需求标题 <span class="required">*</span></label>
-              <input
-                v-model="form.title"
-                type="text"
-                class="form-input"
-                placeholder="用一句话描述这个需求..."
-                autofocus
-              />
+              <input v-model="form.title" type="text" class="form-input" placeholder="用一句话描述这个需求..." />
             </div>
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
-              <div class="form-group" style="margin-bottom:0">
+              <div class="form-group">
                 <label class="form-label">所属项目 <span class="required">*</span></label>
                 <select v-model="form.project_id" class="form-input" @change="onProjectChange">
                   <option value="">选择项目</option>
-                  <option v-for="proj in projects" :key="proj.id" :value="proj.id">
-                    {{ proj.name }}
-                  </option>
+                  <option v-for="proj in projects" :key="proj.id" :value="proj.id">{{ proj.name }}</option>
                 </select>
               </div>
-              <div class="form-group" style="margin-bottom:0">
+              <div class="form-group">
                 <label class="form-label">关联迭代</label>
                 <select v-model="form.iteration_id" class="form-input">
                   <option value="">选择迭代</option>
-                  <option v-for="iter in filteredIterations" :key="iter.id" :value="iter.id">
-                    {{ iter.name }}
-                  </option>
+                  <option v-for="iter in filteredIterations" :key="iter.id" :value="iter.id">{{ iter.name }}</option>
                 </select>
               </div>
             </div>
@@ -151,24 +149,13 @@
           <div v-if="currentStep === 1">
             <div class="form-group">
               <label class="form-label">需求描述</label>
-              <textarea
-                v-model="form.description"
-                class="form-input"
-                style="min-height:110px"
-                placeholder="As a [用户角色], I want [目标], so that [价值/原因]"
-              ></textarea>
-              <p class="form-hint">建议使用 User Story 格式填写</p>
+              <textarea v-model="form.description" class="form-input" style="min-height:110px" placeholder="As a [用户角色], I want [目标], so that [价值/原因]"></textarea>
             </div>
-            <div class="form-group" style="margin-bottom:0">
+            <div class="form-group">
               <label class="form-label">验收标准</label>
               <div class="criteria-list">
                 <div v-for="(item, idx) in form.criteriaList" :key="idx" class="criteria-item">
-                  <input
-                    v-model="form.criteriaList[idx]"
-                    type="text"
-                    class="form-input"
-                    :placeholder="`验收条件 ${idx + 1}`"
-                  />
+                  <input v-model="form.criteriaList[idx]" type="text" class="form-input" :placeholder="`验收条件 ${idx + 1}`" />
                   <button class="criteria-remove" @click="removeCriteria(idx)">×</button>
                 </div>
               </div>
@@ -178,17 +165,14 @@
             </div>
           </div>
 
-          <!-- Step 3: 设置与提交 -->
+          <!-- Step 3: 设置 -->
           <div v-if="currentStep === 2">
             <div class="form-group">
               <label class="form-label">优先级</label>
               <div class="priority-selector">
-                <div
-                  v-for="p in priorities"
-                  :key="p.value"
-                  :class="['priority-card', p.cls, { selected: form.priority === p.value }]"
-                  @click="form.priority = p.value"
-                >
+                <div v-for="p in priorities" :key="p.value"
+                     :class="['priority-card', p.cls, { selected: form.priority === p.value }]"
+                     @click="form.priority = p.value">
                   <div class="p-label">{{ p.value }}</div>
                   <div class="p-desc">{{ p.label }}</div>
                 </div>
@@ -202,15 +186,9 @@
         </div>
 
         <div class="modal-footer">
-          <button v-if="currentStep > 0" class="btn btn-secondary" @click="currentStep--">
-            ← 上一步
-          </button>
-          <button class="btn btn-secondary" @click="closeWizard" style="margin-right:auto;" v-if="currentStep === 0">
-            取消
-          </button>
-          <button v-if="currentStep < 2" class="btn btn-primary" :disabled="!canNext" @click="nextStep">
-            下一步 →
-          </button>
+          <button v-if="currentStep > 0" class="btn btn-secondary" @click="currentStep--">← 上一步</button>
+          <button class="btn btn-secondary" @click="closeWizard" style="margin-right:auto;" v-if="currentStep === 0">取消</button>
+          <button v-if="currentStep < 2" class="btn btn-primary" :disabled="!canNext" @click="nextStep">下一步 →</button>
           <button v-if="currentStep === 2" class="btn btn-primary" :disabled="submitting" @click="submitRequirement">
             {{ submitting ? '创建中...' : '✓ 创建需求' }}
           </button>
@@ -234,6 +212,7 @@ const loading = ref(false)
 const showWizard = ref(false)
 const currentStep = ref(0)
 const submitting = ref(false)
+const selected = ref<string[]>([])
 
 const steps = ['基础信息', '需求内容', '设置']
 
@@ -258,14 +237,18 @@ const displayedRequirements = computed(() => {
   return list
 })
 
+const isAllSelected = computed(() => {
+  return displayedRequirements.value.length > 0 && selected.value.length === displayedRequirements.value.length
+})
+
+const toggleSelectAll = (e: Event) => {
+  const checked = (e.target as HTMLInputElement).checked
+  selected.value = checked ? displayedRequirements.value.map((r: any) => r.id) : []
+}
+
 const defaultForm = () => ({
-  title: '',
-  project_id: '',
-  iteration_id: '',
-  description: '',
-  criteriaList: [''],
-  priority: 'P2',
-  due_date: '',
+  title: '', project_id: '', iteration_id: '', description: '',
+  criteriaList: [''], priority: 'P2', due_date: '',
 })
 
 const form = ref(defaultForm())
@@ -280,57 +263,27 @@ const canNext = computed(() => {
   return true
 })
 
-const openWizard = () => {
-  form.value = defaultForm()
-  currentStep.value = 0
-  showWizard.value = true
-}
+const openWizard = () => { form.value = defaultForm(); currentStep.value = 0; showWizard.value = true }
+const closeWizard = () => { showWizard.value = false }
+const nextStep = () => { if (currentStep.value < 2) currentStep.value++ }
+const onProjectChange = () => { form.value.iteration_id = '' }
+const addCriteria = () => { form.value.criteriaList.push('') }
+const removeCriteria = (idx: number) => { form.value.criteriaList.splice(idx, 1); if (!form.value.criteriaList.length) form.value.criteriaList.push('') }
 
-const closeWizard = () => {
-  showWizard.value = false
-}
+const statusText = (status: string) => ({
+  draft: '草稿', pending_analysis: '待分析', analyzed: '已分析',
+  assigned: '已指派', claimed: '已领取', in_progress: '开发中',
+  pending_review: '待评审', review_approved: '评审通过', review_rejected: '评审驳回', completed: '已完成',
+}[status] || status)
 
-const nextStep = () => {
-  if (currentStep.value < 2) currentStep.value++
-}
-
-const onProjectChange = () => {
-  form.value.iteration_id = ''
-}
-
-const addCriteria = () => {
-  form.value.criteriaList.push('')
-}
-
-const removeCriteria = (idx: number) => {
-  form.value.criteriaList.splice(idx, 1)
-  if (form.value.criteriaList.length === 0) form.value.criteriaList.push('')
-}
-
-const statusText = (status: string) => {
-  const map: Record<string, string> = {
-    draft: '草稿', pending_analysis: '待分析', analyzed: '已分析',
-    assigned: '已指派', claimed: '已领取', in_progress: '开发中',
-    pending_review: '待评审', review_approved: '评审通过',
-    review_rejected: '评审驳回', completed: '已完成',
-  }
-  return map[status] || status
-}
-
-const getIterationName = (iterationId: string) => {
-  const it = iterations.value.find((i: any) => i.id === iterationId)
-  return it?.name || '-'
-}
-
-const formatDate = (date: string) => new Date(date).toLocaleDateString('zh-CN')
+const getIterationName = (id: string) => iterations.value.find((i: any) => i.id === id)?.name || '—'
+const formatDate = (d: string) => new Date(d).toLocaleDateString('zh-CN')
 
 const fetchData = async () => {
   loading.value = true
   try {
     const [reqRes, iterRes, projRes] = await Promise.all([
-      requirementsApi.list(),
-      iterationsApi.list(),
-      projectsApi.list(),
+      requirementsApi.list(), iterationsApi.list(), projectsApi.list(),
     ])
     requirements.value = reqRes.data
     iterations.value = iterRes.data
@@ -338,11 +291,8 @@ const fetchData = async () => {
     if (route.params.id) {
       requirements.value = requirements.value.filter((r: any) => r.project_id === route.params.id)
     }
-  } catch (e) {
-    console.error(e)
-  } finally {
-    loading.value = false
-  }
+  } catch (e) { console.error(e) }
+  finally { loading.value = false }
 }
 
 const submitRequirement = async () => {
@@ -360,25 +310,45 @@ const submitRequirement = async () => {
     })
     closeWizard()
     fetchData()
-  } catch (e) {
-    console.error(e)
-  } finally {
-    submitting.value = false
-  }
+  } catch (e) { console.error(e) }
+  finally { submitting.value = false }
+}
+
+const deleteRequirement = async (id: string) => {
+  if (!confirm('确定删除此需求？')) return
+  try { await requirementsApi.delete(id); fetchData() } catch (e) { console.error(e) }
+}
+
+const batchDelete = async () => {
+  if (!confirm(`确定删除 ${selected.value.length} 个需求？`)) return
+  try { await Promise.all(selected.value.map((id: string) => requirementsApi.delete(id))); selected.value = []; fetchData() }
+  catch (e) { console.error(e) }
 }
 
 onMounted(fetchData)
 </script>
 
 <style scoped>
-.filters-bar {
+.page-header {
   display: flex;
-  gap: 10px;
   align-items: center;
-  flex-wrap: wrap;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  gap: 16px;
 }
 
-.search-wrap {
+.header-left {
+  display: flex;
+  align-items: center;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.search-box {
   position: relative;
   display: flex;
   align-items: center;
@@ -387,14 +357,34 @@ onMounted(fetchData)
 .search-icon {
   position: absolute;
   left: 10px;
-  color: #9ca3af;
+  color: var(--color-text-secondary);
   font-size: 15px;
   pointer-events: none;
   z-index: 1;
 }
 
-.filter-count {
-  margin-left: 4px;
-  white-space: nowrap;
+.batch-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-sidebar-border);
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.action-btns {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+.row-selected {
+  background: rgba(45, 91, 255, 0.04) !important;
+}
+
+.table th {
+  background: var(--color-bg);
 }
 </style>

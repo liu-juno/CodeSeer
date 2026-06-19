@@ -100,6 +100,7 @@ class TestMcpHttpInitialize:
         assert "instructions" in data["result"]
         instructions = data["result"]["instructions"]
         assert "setup_cs_env" in instructions
+        assert "start_cs" in instructions     # 两个命令都要安装
         assert "cwd" in instructions          # 明确指向当前工作目录
         assert "<cwd>" in instructions        # 以 <cwd> 占位符标注项目路径
 

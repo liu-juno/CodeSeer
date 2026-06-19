@@ -361,32 +361,37 @@ _HARNESS_SETUP = {
 
 
 async def _setup_dev_environment(args: dict, user, db: AsyncSession) -> dict:
-    skill_path = _SKILLS_DIR / "codeseer-integration.md"
-    skill_content = skill_path.read_text(encoding="utf-8") if skill_path.exists() else ""
-
-    command_path = _COMMANDS_DIR / "setup_cs_env.md"
-    command_content = command_path.read_text(encoding="utf-8") if command_path.exists() else ""
+    skill_content = (_SKILLS_DIR / "codeseer-integration.md").read_text(encoding="utf-8") \
+        if (_SKILLS_DIR / "codeseer-integration.md").exists() else ""
+    setup_cmd_content = (_COMMANDS_DIR / "setup_cs_env.md").read_text(encoding="utf-8") \
+        if (_COMMANDS_DIR / "setup_cs_env.md").exists() else ""
+    start_cmd_content = (_COMMANDS_DIR / "start_cs.md").read_text(encoding="utf-8") \
+        if (_COMMANDS_DIR / "start_cs.md").exists() else ""
 
     sections = ["## CodeSeer 开发环境安装指南\n"]
     sections.append("请根据你使用的 AI 工具，按对应步骤操作：\n")
 
     for harness in _HARNESS_SETUP.values():
         check_paths = "\n".join(f"  - `{p}`" for p in harness["superpowers_check_paths"])
+        cmd_dir = harness["command_path"].rsplit("/", 1)[0]
         sections.append(
             f"### {harness['name']}\n\n"
             f"**第 1 步：检查 superpowers 是否已安装**\n{check_paths}\n\n"
             f"**第 2 步：未安装时执行**\n```\n{harness['superpowers_install']}\n```\n\n"
             f"**第 3 步：安装 CodeSeer 专属技能**\n"
             f"将【技能文件】内容写入 `{harness['skill_path']}`（目录不存在时先创建）\n\n"
-            f"**第 4 步：安装 /setup_cs_env 斜杠命令**\n"
-            f"将【命令文件】内容写入 `{harness['command_path']}`（目录不存在时先创建）\n"
+            f"**第 4 步：安装斜杠命令**\n"
+            f"将【setup_cs_env 命令文件】写入 `{harness['command_path']}`\n"
+            f"将【start_cs 命令文件】写入 `{cmd_dir}/start_cs.md`\n"
+            f"（目录不存在时先创建，文件已存在则跳过）\n"
         )
 
     return {
         "content": [
             {"type": "text", "text": "\n".join(sections)},
             {"type": "text", "text": f"【技能文件】codeseer-integration\n\n{skill_content}"},
-            {"type": "text", "text": f"【命令文件】setup_cs_env\n\n{command_content}"},
+            {"type": "text", "text": f"【setup_cs_env 命令文件】\n\n{setup_cmd_content}"},
+            {"type": "text", "text": f"【start_cs 命令文件】\n\n{start_cmd_content}"},
         ]
     }
 
@@ -428,12 +433,15 @@ async def mcp_http_endpoint(
                 "instructions": (
                     "连接 CodeSeer 成功。请立即执行以下操作：\n"
                     "1. 调用 setup_dev_environment 工具获取命令文件内容。\n"
-                    "2. 将【命令文件】写入【当前工作目录】（即 cwd，不是用户主目录）下的子路径：\n"
-                    "   - Claude Code：<cwd>/.claude/commands/setup_cs_env.md\n"
-                    "   - OpenCode：<cwd>/.opencode/commands/setup_cs_env.md\n"
-                    "   注意：路径以当前工作目录为根，不要写到 ~/.claude 或 ~/.opencode。\n"
+                    "2. 将【setup_cs_env 命令文件】和【start_cs 命令文件】写入【当前工作目录】"
+                    "（即 cwd，不是用户主目录）下的子路径：\n"
+                    "   - Claude Code：<cwd>/.claude/commands/setup_cs_env.md 和 <cwd>/.claude/commands/start_cs.md\n"
+                    "   - OpenCode：<cwd>/.opencode/commands/setup_cs_env.md 和 <cwd>/.opencode/commands/start_cs.md\n"
+                    "   注意：路径以当前工作目录（cwd）为根，不要写到 ~/.claude 或 ~/.opencode。\n"
                     "3. 目录不存在时先创建，文件已存在则跳过。\n"
-                    "4. 完成后告知用户可以使用 /setup_cs_env 初始化开发环境。"
+                    "4. 完成后告知用户：\n"
+                    "   - /setup_cs_env：安装 superpowers 技能包 + CodeSeer 专属技能\n"
+                    "   - /start_cs：启动 CodeSeer AI 开发工作流"
                 ),
             },
         }

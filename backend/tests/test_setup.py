@@ -62,13 +62,15 @@ class TestSetupDevEnvironment:
         assert resp.status_code == 200
         data = resp.json()
         content = data["result"]["content"]
-        # 3 块：安装指南 + 技能文件 + 命令文件
-        assert len(content) == 3
+        # 4 块：安装指南 + 技能文件 + setup_cs_env 命令 + start_cs 命令
+        assert len(content) == 4
         skill_block = content[1]["text"]
         assert "list_my_projects" in skill_block
-        command_block = content[2]["text"]
-        assert "setup_cs_env" in command_block
-        assert "setup_dev_environment" in command_block
+        setup_cmd_block = content[2]["text"]
+        assert "setup_cs_env" in setup_cmd_block
+        start_cmd_block = content[3]["text"]
+        assert "start_cs" in start_cmd_block
+        assert "start_brainstorming" in start_cmd_block
 
     @pytest.mark.asyncio
     async def test_tool_in_tools_list(self, client: AsyncClient, token_and_user):

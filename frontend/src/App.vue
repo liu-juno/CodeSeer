@@ -38,6 +38,7 @@
           </div>
         </div>
       </header>
+      <TopTab />
       <div class="content">
         <router-view />
       </div>
@@ -49,6 +50,7 @@
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import TopTab from '@/components/TopTab.vue'
 
 const route = useRoute()
 const router = useRouter()

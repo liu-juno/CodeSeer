@@ -100,11 +100,15 @@
             <label class="form-label">邮箱 <span class="required">*</span></label>
             <input v-model="form.email" class="form-input" placeholder="user@company.com" :disabled="!!editing" />
           </div>
-          <div class="form-group" style="margin-bottom:0">
+          <div class="form-group">
             <label class="form-label">角色</label>
             <select v-model="form.role" class="form-input">
               <option v-for="r in roleOptions" :key="r.value" :value="r.value">{{ r.label }}</option>
             </select>
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">密码 {{ editing ? '（留空不修改）' : '*' }}</label>
+            <input v-model="form.password" type="password" class="form-input" placeholder="••••••••" />
           </div>
         </div>
         <div class="modal-footer">
@@ -127,7 +131,7 @@ const rolePermissions = ref<Record<string, string[]>>({})
 const showForm = ref(false)
 const editing = ref<any>(null)
 const saving = ref(false)
-const form = ref({ name: '', email: '', role: 'developer' })
+const form = ref({ name: '', email: '', role: 'developer', password: '' })
 
 const roleOptions = [
   { value: 'admin', label: '管理员（所有权限）' },
@@ -144,13 +148,13 @@ const roleLabel = (r: string) => ({
 
 const openCreate = () => {
   editing.value = null
-  form.value = { name: '', email: '', role: 'developer' }
+  form.value = { name: '', email: '', role: 'developer', password: '' }
   showForm.value = true
 }
 
 const openEdit = (u: any) => {
   editing.value = u
-  form.value = { name: u.name, email: u.email, role: u.role }
+  form.value = { name: u.name, email: u.email, role: u.role, password: '' }
   showForm.value = true
 }
 
@@ -160,7 +164,9 @@ const saveUser = async () => {
   saving.value = true
   try {
     if (editing.value) {
-      await usersApi.update(editing.value.id, { name: form.value.name, role: form.value.role })
+      const payload: any = { name: form.value.name, role: form.value.role }
+      if (form.value.password) payload.password = form.value.password
+      await usersApi.update(editing.value.id, payload)
     } else {
       await usersApi.create(form.value)
     }

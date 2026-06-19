@@ -3,6 +3,10 @@ import vue from '@vitejs/plugin-vue'
 import path from 'path'
 
 export default defineConfig({
+  test: {
+    environment: 'jsdom',
+    globals: true,
+  },
   plugins: [vue()],
   resolve: {
     alias: {

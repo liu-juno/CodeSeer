@@ -59,6 +59,49 @@
       </div>
     </div>
 
+    <!-- Access Token 管理 -->
+    <div class="card mt-16">
+      <div class="card-header-row">
+        <div class="card-title">Access Token 管理</div>
+        <button class="btn btn-secondary btn-sm" @click="showCreateModal = true">+ 申请新 Token</button>
+      </div>
+
+      <div v-if="tokens.length === 0" class="empty-tip text-muted text-small">暂无 Token，点击「申请新 Token」创建</div>
+      <div v-else class="token-list">
+        <div v-for="t in tokens" :key="t.id" class="token-item">
+          <div class="token-item-info">
+            <div class="token-name">{{ t.name }}</div>
+            <code class="token-prefix">{{ t.prefix }}…</code>
+            <span v-if="t.expires_at" class="text-muted text-small">过期: {{ t.expires_at.slice(0, 10) }}</span>
+            <span v-else class="text-muted text-small">永不过期</span>
+          </div>
+          <button class="btn btn-sm btn-ghost danger" @click="handleRevoke(t.id)">撤销</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 创建 Token Modal -->
+    <div v-if="showCreateModal" class="modal-overlay" @click.self="showCreateModal = false">
+      <div class="modal">
+        <div class="modal-title">申请新 Access Token</div>
+        <div v-if="newlyCreatedToken" class="token-reveal">
+          <div class="text-small text-muted mb-8">Token 已创建，请立即复制保存，此后不再显示：</div>
+          <code class="token-reveal-value">{{ newlyCreatedToken }}</code>
+          <button class="btn btn-sm btn-secondary mt-8" @click="copyNewToken">
+            {{ tokenCopied ? '✓ 已复制' : '复制' }}
+          </button>
+        </div>
+        <template v-else>
+          <input v-model="newTokenName" class="form-input" placeholder="Token 名称，如 CI / 本地开发" />
+          <div class="modal-actions">
+            <button class="btn btn-ghost" @click="showCreateModal = false">取消</button>
+            <button class="btn btn-primary" :disabled="!newTokenName" @click="handleCreate">创建</button>
+          </div>
+        </template>
+        <button v-if="newlyCreatedToken" class="btn btn-ghost mt-8" @click="closeCreateModal">关闭</button>
+      </div>
+    </div>
+
     <!-- API endpoints -->
     <div class="card">
       <div class="card-title">REST API 端点</div>
@@ -83,9 +126,44 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted, computed } from 'vue'
+import { useTokenManager } from '@/composables/useTokenManager'
+import { useAuthStore } from '@/stores/auth'
 
 const copied = ref(false)
+const tokenCopied = ref(false)
+const authStore = useAuthStore()
+const currentUserId = computed(() => authStore.user?.id ?? '')
+const { tokens, fetchTokens, createToken, revokeToken } = useTokenManager(currentUserId.value)
+const showCreateModal = ref(false)
+const newTokenName = ref('')
+const newlyCreatedToken = ref<string | null>(null)
+
+onMounted(fetchTokens)
+
+async function handleCreate() {
+  const result = await createToken({ name: newTokenName.value, user_id: currentUserId.value })
+  newlyCreatedToken.value = result.token
+  newTokenName.value = ''
+}
+
+async function handleRevoke(id: string) {
+  if (!confirm('确认撤销此 Token？')) return
+  await revokeToken(id)
+}
+
+async function copyNewToken() {
+  if (newlyCreatedToken.value) {
+    await navigator.clipboard.writeText(newlyCreatedToken.value)
+    tokenCopied.value = true
+    setTimeout(() => { tokenCopied.value = false }, 2000)
+  }
+}
+
+function closeCreateModal() {
+  showCreateModal.value = false
+  newlyCreatedToken.value = null
+}
 
 const mcpConfig = `{
   "mcpServers": {
@@ -197,6 +275,24 @@ const apiEndpoints = [
 .method-badge.post { background: #dbeafe; color: #1e40af; }
 .method-badge.put  { background: #fef9c3; color: #a16207; }
 .method-badge.delete { background: #fee2e2; color: #991b1b; }
+
+.mt-16 { margin-top: 16px; }
+.mt-8 { margin-top: 8px; }
+.mb-8 { margin-bottom: 8px; }
+.card-header-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.token-list { display: flex; flex-direction: column; gap: 10px; }
+.token-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: 8px; border: 1px solid #e5e7eb; }
+.token-item-info { display: flex; align-items: center; gap: 12px; }
+.token-name { font-size: 13.5px; font-weight: 600; color: #111827; }
+.token-prefix { font-size: 12px; color: #6366f1; background: #f5f3ff; padding: 2px 6px; border-radius: 4px; }
+.empty-tip { padding: 16px 0; }
+.danger { color: #dc2626; }
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 100; }
+.modal { background: #fff; border-radius: 12px; padding: 24px; min-width: 360px; display: flex; flex-direction: column; gap: 12px; }
+.modal-title { font-size: 15px; font-weight: 700; color: #111827; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.token-reveal { display: flex; flex-direction: column; }
+.token-reveal-value { font-size: 13px; font-family: monospace; word-break: break-all; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 10px; color: #374151; }
 
 .endpoint-code {
   font-family: monospace; font-size: 13px; color: #4f46e5;

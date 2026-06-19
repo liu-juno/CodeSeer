@@ -5,6 +5,33 @@ const api = axios.create({
   timeout: 10000,
 })
 
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('auth_token')
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+})
+
+api.interceptors.response.use(
+  (res) => res,
+  (err) => {
+    if (err.response?.status === 401) {
+      localStorage.removeItem('auth_token')
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login'
+      }
+    }
+    return Promise.reject(err)
+  },
+)
+
+// Auth API
+export const authApi = {
+  login: (data: { email: string; password: string }) => api.post('/auth/login', data),
+  me: () => api.get('/auth/me'),
+}
+
 // Projects API
 export const projectsApi = {
   list: () => api.get('/projects'),
@@ -109,6 +136,13 @@ export const configApi = {
   updateCustomField: (id: string, data: any) => api.put(`/config/custom-fields/${id}`, data),
   deleteCustomField: (id: string) => api.delete(`/config/custom-fields/${id}`),
   requirementStatusConfig: () => api.get('/requirements/status-config'),
+}
+
+// MCP Tokens API
+export const mcpTokensApi = {
+  list: (userId: string) => api.get('/mcp/tokens', { params: { user_id: userId } }),
+  create: (data: { name: string; user_id: string; days?: number }) => api.post('/mcp/tokens', data),
+  delete: (id: string, userId: string) => api.delete(`/mcp/tokens/${id}`, { params: { user_id: userId } }),
 }
 
 export default api

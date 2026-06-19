@@ -1,5 +1,6 @@
 <template>
-  <div class="app-container">
+  <router-view v-if="route.name === 'login'" />
+  <div v-else class="app-container">
     <aside class="sidebar">
       <div class="logo">
         <div class="logo-icon">⚡</div>
@@ -71,9 +72,10 @@
           <span class="topbar-badge">AI Platform</span>
         </div>
         <div class="topbar-right">
-          <div class="topbar-user">
-            <div class="user-avatar">产</div>
-            <span style="font-size:13px; color:#374151; font-weight:500;">产品经理</span>
+          <div class="topbar-user" v-if="authStore.user">
+            <div class="user-avatar">{{ userInitial }}</div>
+            <span style="font-size:13px; color:#374151; font-weight:500;">{{ authStore.user.name }}</span>
+            <button class="logout-btn" @click="handleLogout" title="退出登录">⏻</button>
           </div>
         </div>
       </header>
@@ -86,9 +88,19 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
+const router = useRouter()
+const authStore = useAuthStore()
+
+const userInitial = computed(() => authStore.user?.name?.[0]?.toUpperCase() ?? '?')
+
+function handleLogout() {
+  authStore.logout()
+  router.push('/login')
+}
 
 const pageTitle = computed(() => {
   const map: Record<string, string> = {
@@ -111,3 +123,18 @@ const pageTitle = computed(() => {
   return map[path] || 'CodeSeer'
 })
 </script>
+
+<style scoped>
+.logout-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #9ca3af;
+  font-size: 16px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  line-height: 1;
+  transition: color 0.2s;
+}
+.logout-btn:hover { color: #ef4444; }
+</style>

@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from typing import Optional
 
 from app.core.database import get_db
+from app.core.auth import hash_password
 from app.models.models import User, UserRole
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -37,12 +38,14 @@ class UserCreate(BaseModel):
     email: str
     name: str
     role: str = "developer"
+    password: Optional[str] = None
     avatar_color: Optional[str] = None
 
 
 class UserUpdate(BaseModel):
     name: Optional[str] = None
     role: Optional[str] = None
+    password: Optional[str] = None
     avatar_color: Optional[str] = None
     is_active: Optional[bool] = None
 
@@ -80,7 +83,8 @@ async def create_user(u: UserCreate, db: AsyncSession = Depends(get_db)):
     db_user = User(
         email=u.email,
         name=u.name,
-        role=u.role,
+        role=UserRole(u.role),
+        password_hash=hash_password(u.password) if u.password else None,
         avatar_color=u.avatar_color or "#6366f1",
     )
     db.add(db_user)
@@ -99,7 +103,11 @@ async def update_user(user_id: str, u: UserUpdate, db: AsyncSession = Depends(ge
     user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    for k, v in u.model_dump(exclude_unset=True).items():
+    update_data = u.model_dump(exclude_unset=True)
+    if 'password' in update_data:
+        raw = update_data.pop('password')
+        update_data['password_hash'] = hash_password(raw) if raw else None
+    for k, v in update_data.items():
         setattr(user, k, v)
     await db.commit()
     await db.refresh(user)

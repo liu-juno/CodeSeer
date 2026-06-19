@@ -435,6 +435,7 @@ class User(Base):
     email = Column(String(200), nullable=False, unique=True)
     name = Column(String(100), nullable=False)
     role = Column(Enum(UserRole), default=UserRole.DEVELOPER)
+    password_hash = Column(String(200), nullable=True)
     avatar_color = Column(String(20), default="#6366f1")
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -475,3 +476,21 @@ class CodeChange(Base):
 
     requirement = relationship("Requirement", backref="code_changes")
     task = relationship("Task", backref="code_changes")
+
+
+# ── MCP Access Token ───────────────────────────────────────────────────────────
+
+class AccessToken(Base):
+    __tablename__ = "access_tokens"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String(36), ForeignKey("users.id"), nullable=False)
+    token_hash = Column(String(64), nullable=False, unique=True, index=True)
+    token_prefix = Column(String(16), nullable=False, index=True)
+    name = Column(String(100), nullable=False)
+    expires_at = Column(DateTime, nullable=True)
+    last_used_at = Column(DateTime, nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", backref="access_tokens")

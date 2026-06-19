@@ -26,7 +26,9 @@
         </thead>
         <tbody>
           <tr v-for="iter in iterations" :key="iter.id">
-            <td style="font-weight:500">{{ iter.name }}</td>
+            <td style="font-weight:500">
+              <router-link :to="`/iteration/${iter.id}`" class="link">{{ iter.name }}</router-link>
+            </td>
             <td class="text-muted text-medium">{{ getProjectName(iter.project_id) }}</td>
             <td>
               <span :class="['status-badge', iter.status]">{{ statusText(iter.status) }}</span>
@@ -88,7 +90,10 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { iterationsApi, projectsApi } from '@/api'
+
+const route = useRoute()
 
 const iterations = ref<any[]>([])
 const projects = ref<any[]>([])
@@ -118,6 +123,9 @@ const fetchData = async () => {
     const [iterRes, projRes] = await Promise.all([iterationsApi.list(), projectsApi.list()])
     iterations.value = iterRes.data
     projects.value = projRes.data
+    if (route.params.id) {
+      iterations.value = iterations.value.filter((i: any) => i.project_id === route.params.id)
+    }
   } catch (e) {
     console.error(e)
   } finally {
@@ -127,7 +135,11 @@ const fetchData = async () => {
 
 const createIteration = async () => {
   try {
-    await iterationsApi.create(newIteration.value)
+    const payload = {
+      ...newIteration.value,
+      planned_release_date: newIteration.value.planned_release_date || null,
+    }
+    await iterationsApi.create(payload)
     showCreateModal.value = false
     newIteration.value = { name: '', description: '', project_id: '', planned_release_date: '' }
     fetchData()

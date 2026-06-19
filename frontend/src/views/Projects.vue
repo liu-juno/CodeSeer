@@ -25,7 +25,9 @@
         </thead>
         <tbody>
           <tr v-for="proj in projects" :key="proj.id">
-            <td style="font-weight:500">{{ proj.name }}</td>
+            <td style="font-weight:500">
+              <router-link :to="`/project/${proj.id}`" class="link">{{ proj.name }}</router-link>
+            </td>
             <td class="text-muted text-medium">{{ proj.description || '-' }}</td>
             <td>
               <span :class="['status-badge', proj.status]">{{ statusText(proj.status) }}</span>

@@ -9,12 +9,6 @@
         <router-link to="/projects" class="nav-item" title="项目管理">
           <span class="nav-icon">📁</span>
         </router-link>
-        <router-link to="/iterations" class="nav-item" title="迭代管理">
-          <span class="nav-icon">🔄</span>
-        </router-link>
-        <router-link to="/requirements" class="nav-item" title="需求管理">
-          <span class="nav-icon">📋</span>
-        </router-link>
         <router-link to="/dashboard" class="nav-item" title="仪表盘">
           <span class="nav-icon">📊</span>
         </router-link>
@@ -65,10 +59,8 @@ function handleLogout() {
 
 const pageTitle = computed(() => {
   const map: Record<string, string> = {
-    '/': '工作台',
-    '/requirements': '需求管理',
-    '/iterations': '迭代管理',
     '/projects': '项目管理',
+    '/dashboard': '仪表盘',
     '/standup': '早会视图',
     '/mcp-config': 'MCP 配置',
     '/documents': '文档管理',
@@ -78,9 +70,9 @@ const pageTitle = computed(() => {
     '/settings': '系统设置',
   }
   const path = route.path
-  if (path.startsWith('/requirements/')) return '需求详情'
-  if (path.startsWith('/iterations/')) return '迭代详情'
-  if (path.startsWith('/projects/')) return '项目详情'
+  if (path.startsWith('/project/')) return '项目详情'
+  if (path.startsWith('/requirement/')) return '需求详情'
+  if (path.startsWith('/iteration/')) return '迭代详情'
   return map[path] || 'CodeSeer'
 })
 </script>

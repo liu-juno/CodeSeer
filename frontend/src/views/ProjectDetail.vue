@@ -72,7 +72,7 @@
           <tbody>
             <tr v-for="iter in iterations" :key="iter.id">
               <td>
-                <router-link :to="`/iterations/${iter.id}`" class="link" style="font-weight:600;">
+                <router-link :to="`/iteration/${iter.id}`" class="link" style="font-weight:600;">
                   {{ iter.name }}
                 </router-link>
                 <div v-if="iter.description" class="text-muted text-small" style="margin-top:2px;">
@@ -83,7 +83,7 @@
               <td class="text-muted text-small">{{ iter.planned_release_date ? formatDate(iter.planned_release_date) : '-' }}</td>
               <td class="text-muted text-small">{{ iter.actual_release_date ? formatDate(iter.actual_release_date) : '-' }}</td>
               <td>
-                <router-link :to="`/iterations/${iter.id}`" class="btn-link">查看 →</router-link>
+                <router-link :to="`/iteration/${iter.id}`" class="btn-link">查看 →</router-link>
               </td>
             </tr>
             <tr v-if="iterations.length === 0">
@@ -97,6 +97,7 @@
           </tbody>
         </table>
       </div>
+      <router-view />
     </template>
   </div>
 </template>

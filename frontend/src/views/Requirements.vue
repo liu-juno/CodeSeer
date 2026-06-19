@@ -61,14 +61,13 @@
             <th>优先级</th>
             <th>迭代</th>
             <th>状态</th>
-            <th>负责人</th>
             <th>创建时间</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="req in displayedRequirements" :key="req.id">
             <td>
-                <router-link :to="`/requirement/${req.id}`" class="link">
+              <router-link :to="`/requirement/${req.id}`" class="link">
                 {{ req.title }}
               </router-link>
             </td>
@@ -79,22 +78,10 @@
             <td>
               <span :class="['status-badge', req.status]">{{ statusText(req.status) }}</span>
             </td>
-            <td>
-              <select
-                :value="req.assignee_id || ''"
-                class="assignee-select"
-                @change="changeAssignee(req, ($event.target as HTMLSelectElement).value)"
-              >
-                <option value="">未指派</option>
-                <option v-for="dev in developers" :key="dev.id" :value="dev.id">
-                  {{ dev.name }}
-                </option>
-              </select>
-            </td>
             <td class="text-muted text-small">{{ formatDate(req.created_at) }}</td>
           </tr>
           <tr v-if="displayedRequirements.length === 0">
-            <td colspan="6">
+            <td colspan="5">
               <div class="empty-state">
                 <div class="empty-state-icon">◇</div>
                 <div class="empty-state-text">暂无需求，点击「创建需求」开始</div>
@@ -129,12 +116,12 @@
           <!-- Step 1: 基础信息 -->
           <div v-if="currentStep === 0">
             <div class="form-group">
-              <label class="form-label">需求标题</label>
+              <label class="form-label">需求标题 <span class="required">*</span></label>
               <input
                 v-model="form.title"
                 type="text"
                 class="form-input"
-                placeholder="选填，不填则自动从描述中提取"
+                placeholder="用一句话描述这个需求..."
                 autofocus
               />
             </div>
@@ -167,44 +154,10 @@
               <textarea
                 v-model="form.description"
                 class="form-input"
-                style="min-height:280px"
-                placeholder="请填写需求描述..."
+                style="min-height:110px"
+                placeholder="As a [用户角色], I want [目标], so that [价值/原因]"
               ></textarea>
-              <div class="description-guide">
-                <div class="guide-title">📝 需求描述参考模板（可直接复制修改）：</div>
-                <div class="guide-content">
-<pre>【用户角色】
-注册用户
-
-【我要做什么】
-使用手机号+验证码登录系统
-
-【为什么需要这个功能】
-1. 无需记忆复杂密码，提升用户体验
-2. 验证码登录比密码更安全
-3. 支持短信验证码找回账号
-
-【功能详细描述】
-1. 支持中国大陆手机号段注册和登录
-2. 验证码发送后5分钟内有效
-3. 登录失败3次后需等待5分钟才能重试
-4. 验证码错误3次后自动失效，需要重新获取
-
-【业务规则】
-- 仅支持中国大陆手机号（+86）
-- 每个手机号每天最多发送10次验证码
-- 验证码有效期5分钟
-
-【边界情况】
-- 手机号格式校验（11位数字，1开头）
-- 验证码输入错误提示
-- 短信发送失败重试机制
-
-【依赖说明】
-- 依赖短信服务商接口（已集成SMS服务）
-- 依赖用户中心数据库</pre>
-                </div>
-              </div>
+              <p class="form-hint">建议使用 User Story 格式填写</p>
             </div>
             <div class="form-group" style="margin-bottom:0">
               <label class="form-label">验收标准</label>
@@ -241,18 +194,9 @@
                 </div>
               </div>
             </div>
-            <div class="form-group">
+            <div class="form-group" style="margin-bottom:0">
               <label class="form-label">截止日期 <span style="font-weight:400; color:#9ca3af;">（选填）</span></label>
               <input v-model="form.due_date" type="date" class="form-input" style="width:200px" />
-            </div>
-            <div class="form-group" style="margin-bottom:0">
-              <label class="form-label">指派开发者 <span style="font-weight:400; color:#9ca3af;">（选填）</span></label>
-              <select v-model="form.assignee_id" class="form-input">
-                <option value="">暂不指派</option>
-                <option v-for="dev in developers" :key="dev.id" :value="dev.id">
-                  {{ dev.name }}（{{ dev.email }}）
-                </option>
-              </select>
             </div>
           </div>
         </div>
@@ -279,14 +223,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { requirementsApi, iterationsApi, projectsApi, usersApi } from '@/api'
+import { requirementsApi, iterationsApi, projectsApi } from '@/api'
 
 const route = useRoute()
 
 const requirements = ref<any[]>([])
 const iterations = ref<any[]>([])
 const projects = ref<any[]>([])
-const developers = ref<any[]>([])
 const loading = ref(false)
 const showWizard = ref(false)
 const currentStep = ref(0)
@@ -323,7 +266,6 @@ const defaultForm = () => ({
   criteriaList: [''],
   priority: 'P2',
   due_date: '',
-  assignee_id: '',
 })
 
 const form = ref(defaultForm())
@@ -334,7 +276,7 @@ const filteredIterations = computed(() => {
 })
 
 const canNext = computed(() => {
-  if (currentStep.value === 0) return form.value.project_id
+  if (currentStep.value === 0) return form.value.title.trim() && form.value.project_id
   return true
 })
 
@@ -349,31 +291,6 @@ const closeWizard = () => {
 }
 
 const nextStep = () => {
-  if (currentStep.value === 0) {
-    // Auto-fill description template when entering step 1
-    if (!form.value.description) {
-      form.value.description = `【用户角色】
-注册用户
-
-【我要做什么】
-（请描述用户想要实现的功能）
-
-【为什么需要这个功能】
-1. （请描述带来的价值/解决的问题）
-
-【功能详细描述】
-1. （请详细描述功能点）
-
-【业务规则】
-- （请描述业务规则）
-
-【边界情况】
-- （请描述边界情况处理）
-
-【依赖说明】
-- （请描述依赖的系统/服务）`
-    }
-  }
   if (currentStep.value < 2) currentStep.value++
 }
 
@@ -405,31 +322,19 @@ const getIterationName = (iterationId: string) => {
   return it?.name || '-'
 }
 
-const changeAssignee = async (req: any, assigneeId: string) => {
-  if (!assigneeId) return
-  try {
-    await requirementsApi.assign(req.id, assigneeId)
-    req.assignee_id = assigneeId
-  } catch (e) {
-    console.error(e)
-  }
-}
-
 const formatDate = (date: string) => new Date(date).toLocaleDateString('zh-CN')
 
 const fetchData = async () => {
   loading.value = true
   try {
-    const [reqRes, iterRes, projRes, usersRes] = await Promise.all([
+    const [reqRes, iterRes, projRes] = await Promise.all([
       requirementsApi.list(),
       iterationsApi.list(),
       projectsApi.list(),
-      usersApi.list(),
     ])
     requirements.value = reqRes.data
     iterations.value = iterRes.data
     projects.value = projRes.data
-    developers.value = usersRes.data.filter((u: any) => u.role === 'DEVELOPER' || u.role === 'developer')
     if (route.params.id) {
       requirements.value = requirements.value.filter((r: any) => r.project_id === route.params.id)
     }
@@ -444,19 +349,8 @@ const submitRequirement = async () => {
   submitting.value = true
   try {
     const criteria = form.value.criteriaList.filter(c => c.trim()).join('\n')
-    // Auto-generate title from description if empty
-    let title = form.value.title.trim()
-    if (!title && form.value.description) {
-      // Extract first non-empty line as title
-      const lines = form.value.description.split('\n').filter(l => l.trim())
-      if (lines.length > 0) {
-        title = lines[0].replace(/^【.+?】\s*/, '').trim() || '未命名需求'
-      } else {
-        title = '未命名需求'
-      }
-    }
-    const res = await requirementsApi.create({
-      title: title || '未命名需求',
+    await requirementsApi.create({
+      title: form.value.title,
       project_id: form.value.project_id,
       iteration_id: form.value.iteration_id || null,
       description: form.value.description,
@@ -464,9 +358,6 @@ const submitRequirement = async () => {
       priority: form.value.priority,
       due_date: form.value.due_date || null,
     })
-    if (form.value.assignee_id) {
-      await requirementsApi.assign(res.data.id, form.value.assignee_id)
-    }
     closeWizard()
     fetchData()
   } catch (e) {
@@ -506,27 +397,4 @@ onMounted(fetchData)
   margin-left: 4px;
   white-space: nowrap;
 }
-
-.assignee-select {
-  border: 1px solid transparent;
-  background: transparent;
-  color: #374151;
-  font-size: 13px;
-  padding: 2px 4px;
-  border-radius: 4px;
-  cursor: pointer;
-  max-width: 120px;
-}
-
-.assignee-select:hover {
-  border-color: #d1d5db;
-  background: #f9fafb;
-}
-
-.assignee-select:focus {
-  outline: none;
-  border-color: #6366f1;
-  background: #fff;
-}
-
 </style>

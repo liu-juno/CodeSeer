@@ -135,11 +135,7 @@ const fetchData = async () => {
 
 const createIteration = async () => {
   try {
-    const payload = {
-      ...newIteration.value,
-      planned_release_date: newIteration.value.planned_release_date || null,
-    }
-    await iterationsApi.create(payload)
+    await iterationsApi.create(newIteration.value)
     showCreateModal.value = false
     newIteration.value = { name: '', description: '', project_id: '', planned_release_date: '' }
     fetchData()

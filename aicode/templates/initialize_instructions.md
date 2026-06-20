@@ -5,7 +5,7 @@
 ### 触发一：环境安装
 
 用户说以下任意内容时，执行环境安装（不是开发流程）：
-- 初始化 CodeSeer
+- 初始化 CodeSeer / 初始化cs / 初始化 cs
 - 安装 CodeSeer 环境
 - 帮我配置 CodeSeer
 - 更新 CodeSeer 命令

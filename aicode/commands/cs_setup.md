@@ -5,12 +5,11 @@ description: 安装或更新 CodeSeer 开发环境（删除旧版本，从服务
 ## 触发条件
 
 用户输入 `/cs_setup` 或说以下任意内容时执行本命令：
-- "初始化 CodeSeer"
+- "初始化 CodeSeer" / "初始化cs" / "初始化 cs"
 - "安装 CodeSeer 环境"
 - "帮我配置 CodeSeer"
 - "更新 CodeSeer 命令"
-- "cs 初始化"
-- "cs setup"
+- "cs 初始化" / "cs setup"
 
 ## 执行步骤
 

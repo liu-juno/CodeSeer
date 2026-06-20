@@ -1,6 +1,6 @@
 ---
 name: cs_integration
-description: "You MUST use this when the user wants to start development work via CodeSeer platform — triggers the full workflow: select project → select iteration → select requirement → brainstorming → writing-plans (TDD mandatory) → auto-sync docs & tasks → TDD execution"
+description: "Use ONLY when user explicitly says they want to START DEVELOPMENT WORK (e.g. '我要开始工作', '开始开发', '/cs_start'). Do NOT use for setup/initialization phrases like '初始化', 'cs setup', '安装环境', '配置' — those belong to cs_setup."
 ---
 
 # CodeSeer Integration Skill
@@ -12,12 +12,21 @@ description: "You MUST use this when the user wants to start development work vi
 
 ## 触发条件
 
-用户输入 `/cs_start` 或表达以下开发意图时触发：
+用户输入 `/cs_start` 或表达以下**开发**意图时触发（注意：安装/初始化不属于此范围）：
 - "我要开始工作"
 - "开始开发"
 - "我有新任务"
 - "开始一个新需求"
 - "start dev"
+
+## ⛔ 不触发条件（交给环境安装流程处理）
+
+以下内容**不属于开发工作流**，不要用本技能处理：
+- "初始化" / "初始化cs" / "初始化 cs" / "初始化 CodeSeer"
+- "cs 初始化" / "cs setup"
+- "安装 CodeSeer 环境" / "帮我配置 CodeSeer" / "更新 CodeSeer 命令"
+
+遇到上述触发词，应调用 `setup_dev_environment` 工具执行安装流程，而不是开发流程。
 
 ## 执行流程
 

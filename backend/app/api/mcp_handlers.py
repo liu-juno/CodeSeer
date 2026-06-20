@@ -6,7 +6,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.models import (
-    Document, Iteration, Project, Requirement, RequirementStatus, Task, TestResult, UnitTestRecord,
+    Document, Iteration, Project, Requirement, RequirementPhase, RequirementStatus,
+    PhaseType, PhaseStatus, Task, TestResult, UnitTestRecord,
 )
 from app.api.mcp_tools import ACTIVE_STATUSES, TRANSITIONS
 
@@ -36,6 +37,26 @@ def _read_cmd(name: str) -> str:
 
 def _read_template(name: str) -> str:
     return _read_file(_TEMPLATES_DIR / f"{name}.md")
+
+
+async def _advance_phase(req_id: str, phase_type: PhaseType, status: PhaseStatus, db: AsyncSession) -> None:
+    result = await db.execute(
+        select(RequirementPhase).where(
+            RequirementPhase.requirement_id == req_id,
+            RequirementPhase.phase == phase_type,
+        )
+    )
+    phase = result.scalar_one_or_none()
+    if phase is None:
+        return
+    if phase.status == status:
+        return
+    phase.status = status
+    if status == PhaseStatus.IN_PROGRESS and not phase.started_at:
+        phase.started_at = datetime.utcnow()
+    if status == PhaseStatus.COMPLETED:
+        phase.completed_at = datetime.utcnow()
+    await db.flush()
 
 
 _HARNESS_SETUP = {
@@ -195,6 +216,7 @@ async def _sync_tasks(args: dict, user, db: AsyncSession) -> dict:
         )
         db.add(t)
         created.append(t)
+    await _advance_phase(req_id, PhaseType.PLANNING, PhaseStatus.COMPLETED, db)
     await db.commit()
     for t in created:
         await db.refresh(t)
@@ -258,6 +280,9 @@ async def _start_brainstorming(args: dict, user, db: AsyncSession) -> dict:
         f"**现有任务**:\n{task_lines}\n"
     )
 
+    await _advance_phase(req_id, PhaseType.CLARIFICATION, PhaseStatus.IN_PROGRESS, db)
+    await db.commit()
+
     template = _read_template("brainstorm_instruction")
     instruction = template.format(req_id=req_id, doc_base=doc_base, context=context)
     return _text(instruction)
@@ -280,6 +305,10 @@ async def _update_requirement_status(args: dict, user, db: AsyncSession) -> dict
 
     req.status = RequirementStatus(action)
     req.updated_at = datetime.utcnow()
+    if action == "pending_review":
+        await _advance_phase(req_id, PhaseType.REVIEW, PhaseStatus.IN_PROGRESS, db)
+    elif action in ("review_approved", "completed"):
+        await _advance_phase(req_id, PhaseType.REVIEW, PhaseStatus.COMPLETED, db)
     await db.commit()
     return _text(f"需求 {req_id} 状态已更新：{current} → {action}")
 
@@ -323,6 +352,10 @@ async def _submit_test_result(args: dict, user, db: AsyncSession) -> dict:
         result=test_result,
     )
     db.add(record)
+    if tdd_phase in ("red", "green"):
+        await _advance_phase(req_id, PhaseType.TESTING, PhaseStatus.IN_PROGRESS, db)
+    elif tdd_phase == "refactor" and test_result == TestResult.ALL_PASSED:
+        await _advance_phase(req_id, PhaseType.TESTING, PhaseStatus.COMPLETED, db)
     await db.commit()
 
     status_icon = "✅" if test_result == TestResult.ALL_PASSED else ("⚠️" if test_result == TestResult.PARTIAL else "❌")
@@ -352,6 +385,10 @@ async def _create_document(args: dict, user, db: AsyncSession) -> dict:
         created_by=str(user.id),
     )
     db.add(doc)
+    if doc_type == "design":
+        await _advance_phase(req_id, PhaseType.CLARIFICATION, PhaseStatus.COMPLETED, db)
+    elif doc_type == "analysis":
+        await _advance_phase(req_id, PhaseType.PLANNING, PhaseStatus.IN_PROGRESS, db)
     await db.commit()
     await db.refresh(doc)
     return _text(f"文档已上传（id={doc.id}，类型={doc_type}）：{title}")
@@ -393,6 +430,36 @@ async def _setup_dev_environment(args: dict, user, db: AsyncSession) -> dict:
     }
 
 
+async def _update_task_status(args: dict, user, db: AsyncSession) -> dict:
+    task_id = args.get("task_id")
+    status = args.get("status")
+    if not task_id or not status:
+        return None
+    result = await db.execute(select(Task).where(Task.id == task_id))
+    task = result.scalar_one_or_none()
+    if not task:
+        return {"__not_found__": True}
+
+    from app.models.models import TaskStatus
+    try:
+        task.status = TaskStatus(status)
+    except ValueError:
+        return _text(f"无效状态：{status}，可选值：pending / in_progress / completed / blocked")
+
+    if status == "in_progress":
+        await _advance_phase(task.requirement_id, PhaseType.EXECUTION, PhaseStatus.IN_PROGRESS, db)
+    elif status == "completed":
+        all_tasks = (await db.execute(
+            select(Task).where(Task.requirement_id == task.requirement_id)
+        )).scalars().all()
+        other_incomplete = [t for t in all_tasks if t.id != task_id and t.status.value != "completed"]
+        if not other_incomplete:
+            await _advance_phase(task.requirement_id, PhaseType.EXECUTION, PhaseStatus.COMPLETED, db)
+
+    await db.commit()
+    return _text(f"任务状态已更新：{task.title} → {status}")
+
+
 TOOL_HANDLERS = {
     "list_my_projects": _list_my_projects,
     "list_iterations": _list_iterations,
@@ -400,6 +467,7 @@ TOOL_HANDLERS = {
     "start_brainstorming": _start_brainstorming,
     "get_requirement_detail": _get_requirement_detail,
     "sync_tasks": _sync_tasks,
+    "update_task_status": _update_task_status,
     "submit_test_result": _submit_test_result,
     "update_requirement_status": _update_requirement_status,
     "create_document": _create_document,

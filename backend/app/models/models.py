@@ -45,6 +45,7 @@ class Project(Base):
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     name = Column(String(200), nullable=False)
+    identifier = Column(String(50), nullable=True, unique=True)
     description = Column(Text, nullable=True)
     status = Column(Enum(ProjectStatus), default=ProjectStatus.ACTIVE)
     owner_id = Column(String(36), nullable=True)

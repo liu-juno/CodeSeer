@@ -20,6 +20,10 @@ async def list_projects(db: AsyncSession = Depends(get_db)):
 
 @router.post("", response_model=ProjectResponse)
 async def create_project(project: ProjectCreate, db: AsyncSession = Depends(get_db)):
+    if project.identifier:
+        existing = await db.execute(select(Project).where(Project.identifier == project.identifier))
+        if existing.scalar_one_or_none():
+            raise HTTPException(status_code=409, detail=f"标识符 '{project.identifier}' 已被使用")
     db_project = Project(**project.model_dump())
     db.add(db_project)
     await db.commit()
@@ -44,6 +48,12 @@ async def update_project(project_id: UUID, project: ProjectUpdate, db: AsyncSess
         raise HTTPException(status_code=404, detail="Project not found")
 
     update_data = project.model_dump(exclude_unset=True)
+    if "identifier" in update_data and update_data["identifier"]:
+        existing = await db.execute(
+            select(Project).where(Project.identifier == update_data["identifier"], Project.id != str(project_id))
+        )
+        if existing.scalar_one_or_none():
+            raise HTTPException(status_code=409, detail=f"标识符 '{update_data['identifier']}' 已被使用")
     for key, value in update_data.items():
         setattr(db_project, key, value)
 

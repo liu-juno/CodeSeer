@@ -42,7 +42,18 @@ class RequirementPriority(str, Enum):
 # Project Schemas
 class ProjectBase(BaseModel):
     name: str
+    identifier: Optional[str] = None
     description: Optional[str] = None
+
+    @field_validator("identifier")
+    @classmethod
+    def validate_identifier(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        import re
+        if not re.match(r'^[a-z][a-z0-9-]{1,48}[a-z0-9]$', v):
+            raise ValueError("identifier 只能包含小写字母、数字和连字符，长度 3-50，首尾必须是字母或数字")
+        return v
 
 
 class ProjectCreate(ProjectBase):
@@ -51,8 +62,19 @@ class ProjectCreate(ProjectBase):
 
 class ProjectUpdate(BaseModel):
     name: Optional[str] = None
+    identifier: Optional[str] = None
     description: Optional[str] = None
     status: Optional[ProjectStatus] = None
+
+    @field_validator("identifier")
+    @classmethod
+    def validate_identifier(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        import re
+        if not re.match(r'^[a-z][a-z0-9-]{1,48}[a-z0-9]$', v):
+            raise ValueError("identifier 只能包含小写字母、数字和连字符，长度 3-50，首尾必须是字母或数字")
+        return v
 
 
 class ProjectResponse(ProjectBase):

@@ -204,16 +204,19 @@ writing-plans 完成后，AI 立即依次执行：
 
 ## 文档目录结构
 
-AI 工作流产出的文档统一按迭代和需求归档：
+AI 工作流产出的文档统一按项目、迭代、需求三级归档：
 
 ```
 docs/cs/
-└── <迭代名>/
-    └── <需求名>/
-        ├── specs/    # 设计文档（brainstorming 产出）
-        ├── plans/    # 计划文档（writing-plans 产出）
-        └── api/      # API 文档
+└── <项目标识符>/         # 项目的英文标识符（如 codeseer-web）
+    └── <迭代名>/
+        └── <需求名>/
+            ├── specs/    # 设计文档（brainstorming 产出）
+            ├── plans/    # 计划文档（writing-plans 产出）
+            └── api/      # API 文档
 ```
+
+> 项目标识符在创建项目时设置（小写字母、数字、连字符），用于文档路径和 AI 工具引用。
 
 ---
 

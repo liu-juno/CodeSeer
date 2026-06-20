@@ -36,6 +36,7 @@
               <input type="checkbox" @change="toggleSelectAll" :checked="isAllSelected" />
             </th>
             <th>项目名称</th>
+            <th style="width:120px;">标识符</th>
             <th>描述</th>
             <th>状态</th>
             <th>创建时间</th>
@@ -52,6 +53,10 @@
                 {{ proj.name }}
               </router-link>
             </td>
+            <td>
+              <span v-if="proj.identifier" class="identifier-badge">{{ proj.identifier }}</span>
+              <span v-else class="text-muted text-small">—</span>
+            </td>
             <td class="text-muted text-medium">{{ proj.description || '—' }}</td>
             <td>
               <span :class="['status-badge', proj.status]">{{ statusText(proj.status) }}</span>
@@ -65,7 +70,7 @@
             </td>
           </tr>
           <tr v-if="filteredProjects.length === 0">
-            <td colspan="6">
+            <td colspan="7">
               <div class="empty-state">
                 <div class="empty-state-icon">▦</div>
                 <div class="empty-state-text">暂无项目，点击「创建项目」开始</div>
@@ -87,6 +92,15 @@
           <div class="form-group">
             <label class="form-label">项目名称 <span class="required">*</span></label>
             <input v-model="newProject.name" type="text" class="form-input" placeholder="如：CodeSeer Web" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">项目标识符</label>
+            <input v-model="newProject.identifier" type="text" class="form-input"
+              placeholder="如：codeseer-web（小写字母、数字、连字符）"
+              :class="{ 'input-error': identifierError }"
+              @input="validateIdentifier" />
+            <div v-if="identifierError" class="field-error">{{ identifierError }}</div>
+            <div v-else class="field-hint">用于文档路径和 AI 工具引用，创建后可修改</div>
           </div>
           <div class="form-group" style="margin-bottom:0">
             <label class="form-label">项目描述</label>
@@ -112,7 +126,18 @@ const showCreateModal = ref(false)
 const selected = ref<string[]>([])
 const search = ref('')
 
-const newProject = ref({ name: '', description: '' })
+const newProject = ref({ name: '', identifier: '', description: '' })
+const identifierError = ref('')
+
+const validateIdentifier = () => {
+  const v = newProject.value.identifier
+  if (!v) { identifierError.value = ''; return }
+  if (!/^[a-z][a-z0-9-]{1,48}[a-z0-9]$/.test(v)) {
+    identifierError.value = '只能包含小写字母、数字和连字符，长度 3-50，首尾为字母或数字'
+  } else {
+    identifierError.value = ''
+  }
+}
 
 const filteredProjects = computed(() => {
   if (!search.value.trim()) return projects.value
@@ -140,12 +165,19 @@ const fetchData = async () => {
 }
 
 const createProject = async () => {
+  if (identifierError.value) return
   try {
-    await projectsApi.create(newProject.value)
+    const payload: any = { name: newProject.value.name, description: newProject.value.description }
+    if (newProject.value.identifier) payload.identifier = newProject.value.identifier
+    await projectsApi.create(payload)
     showCreateModal.value = false
-    newProject.value = { name: '', description: '' }
+    newProject.value = { name: '', identifier: '', description: '' }
+    identifierError.value = ''
     fetchData()
-  } catch (e) { console.error(e) }
+  } catch (e: any) {
+    if (e?.response?.status === 409) identifierError.value = '该标识符已被其他项目使用'
+    else console.error(e)
+  }
 }
 
 const deleteProject = async (id: string) => {
@@ -220,5 +252,32 @@ onMounted(fetchData)
 
 .table th {
   background: var(--color-bg);
+}
+
+.identifier-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-sidebar-border);
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: monospace;
+  color: var(--color-text-secondary);
+}
+
+.input-error {
+  border-color: #ef4444 !important;
+}
+
+.field-error {
+  font-size: 12px;
+  color: #ef4444;
+  margin-top: 4px;
+}
+
+.field-hint {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  margin-top: 4px;
 }
 </style>

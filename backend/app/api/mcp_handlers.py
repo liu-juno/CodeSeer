@@ -94,7 +94,9 @@ async def _list_my_projects(args: dict, user, db: AsyncSession) -> dict:
     )
     projects = proj_result.scalars().all()
     lines = [
-        f"- {p.name} (id={p.id}, status={p.status.value if hasattr(p.status, 'value') else p.status})"
+        f"- {p.name}"
+        + (f" [{p.identifier}]" if p.identifier else "")
+        + f" (id={p.id}, status={p.status.value if hasattr(p.status, 'value') else p.status})"
         for p in projects
     ]
     return _text("你的项目：\n" + "\n".join(lines))
@@ -218,6 +220,13 @@ async def _start_brainstorming(args: dict, user, db: AsyncSession) -> dict:
     if not req:
         return {"__not_found__": True}
 
+    proj_key = "project"
+    if req.project_id:
+        proj_result = await db.execute(select(Project).where(Project.id == req.project_id))
+        project = proj_result.scalar_one_or_none()
+        if project:
+            proj_key = project.identifier or _slugify(project.name)
+
     iter_slug = "no-iteration"
     if req.iteration_id:
         iter_result = await db.execute(select(Iteration).where(Iteration.id == req.iteration_id))
@@ -226,7 +235,7 @@ async def _start_brainstorming(args: dict, user, db: AsyncSession) -> dict:
             iter_slug = _slugify(iteration.name)
 
     req_slug = _slugify(req.title)
-    doc_base = f"docs/cs/{iter_slug}/{req_slug}"
+    doc_base = f"docs/cs/{proj_key}/{iter_slug}/{req_slug}"
 
     tasks_result = await db.execute(
         select(Task).where(Task.requirement_id == req_id).order_by(Task.order)

@@ -1,3 +1,4 @@
+import os
 import re
 from datetime import datetime
 from pathlib import Path
@@ -6,8 +7,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.models import (
-    Document, Iteration, Module, Project, Requirement, RequirementPhase, RequirementStatus,
-    PhaseType, PhaseStatus, Skill, Task, TestResult, UnitTestRecord,
+    Document, Iteration, Module, Project, Requirement, RequirementAttachment, RequirementPhase,
+    RequirementStatus, PhaseType, PhaseStatus, Skill, Task, TestResult, UnitTestRecord,
 )
 from app.api.mcp_tools import ACTIVE_STATUSES, TRANSITIONS
 
@@ -585,6 +586,38 @@ async def _update_task_status(args: dict, user, db: AsyncSession) -> dict:
     return _text(f"任务状态已更新：{task.title} → {status}")
 
 
+async def _download_attachment(args: dict, user, db: AsyncSession) -> dict:
+    req_id = args.get("requirement_id")
+    attachment_id = args.get("attachment_id")
+    if not req_id or not attachment_id:
+        return None
+
+    result = await db.execute(
+        select(RequirementAttachment).where(
+            RequirementAttachment.id == attachment_id,
+            RequirementAttachment.requirement_id == req_id,
+        )
+    )
+    attachment = result.scalar_one_or_none()
+    if not attachment:
+        return {"__not_found__": True}
+
+    if not os.path.exists(attachment.storage_path):
+        return _text(f"文件不存在：{attachment.filename}")
+
+    import base64
+    with open(attachment.storage_path, 'rb') as f:
+        content = base64.b64encode(f.read()).decode('utf-8')
+
+    return _text(
+        f"附件内容（base64）：\n"
+        f"文件名：{attachment.filename}\n"
+        f"大小：{attachment.file_size} 字节\n"
+        f"类型：{attachment.content_type}\n\n"
+        f"```\n{content}\n```"
+    )
+
+
 TOOL_HANDLERS = {
     "list_my_projects": _list_my_projects,
     "list_iterations": _list_iterations,
@@ -599,4 +632,5 @@ TOOL_HANDLERS = {
     "get_document": _get_document,
     "list_skills_by_project": _list_skills_by_project,
     "setup_dev_environment": _setup_dev_environment,
+    "download_attachment": _download_attachment,
 }

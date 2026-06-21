@@ -204,6 +204,46 @@ class TestSyncTasks:
         assert tasks[0].title == "写单测"
 
 
+class TestDownloadAttachment:
+    @pytest.mark.asyncio
+    async def test_download_attachment_returns_content(
+            self, client, auth_headers, seeded_project, db):
+        """download_attachment 返回 base64 编码的附件内容"""
+        from app.models.models import RequirementAttachment
+        import os
+
+        # create an attachment with a real file
+        storage_path = "/tmp/test_attachments/req-001/att-001_test.txt"
+        os.makedirs(os.path.dirname(storage_path), exist_ok=True)
+        with open(storage_path, 'w') as f:
+            f.write("hello world")
+
+        att = RequirementAttachment(
+            id="att-001",
+            requirement_id="req-001",
+            filename="test.txt",
+            file_size=11,
+            content_type="text/plain",
+            storage_path=storage_path,
+            storage_backend="local",
+        )
+        db.add(att)
+        await db.commit()
+
+        resp = await client.post("/api/mcp/http",
+            headers=auth_headers,
+            json={"jsonrpc": "2.0", "method": "tools/call",
+                  "params": {"name": "download_attachment",
+                             "arguments": {
+                                 "requirement_id": "req-001",
+                                 "attachment_id": "att-001"
+                             }}, "id": 12})
+        assert resp.status_code == 200
+        text = resp.json()["result"]["content"][0]["text"]
+        assert "附件内容" in text
+        assert "aGVsbG8gd29ybGQ=" in text  # base64 of "hello world"
+
+
 class TestUpdateRequirementStatus:
     @pytest.mark.asyncio
     async def test_update_requirement_status_transitions(

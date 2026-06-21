@@ -61,7 +61,7 @@ TOOLS = [
     },
     {
         "name": "sync_tasks",
-        "description": "将任务列表同步到平台（替换已有任务）",
+        "description": "将任务列表同步到平台。首次调用创建任务；任务完成后再次调用可更新状态和工时（按 title 匹配，不删除已有任务）",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -74,7 +74,9 @@ TOOLS = [
                         "properties": {
                             "title": {"type": "string"},
                             "description": {"type": "string"},
-                            "priority": {"type": "string"},
+                            "status": {"type": "string", "description": "pending | in_progress | completed | blocked"},
+                            "estimated_hours": {"type": "number", "description": "预估工时（小时）"},
+                            "actual_hours": {"type": "number", "description": "实际工时（小时）"},
                         },
                         "required": ["title"],
                     },
@@ -122,7 +124,7 @@ TOOLS = [
             "type": "object",
             "properties": {
                 "requirement_id": {"type": "string", "description": "需求 ID"},
-                "action": {"type": "string", "description": "目标状态，如 claimed / in_progress / pending_review"},
+                "action": {"type": "string", "description": "目标状态，如 in_progress / pending_review"},
             },
             "required": ["requirement_id", "action"],
         },
@@ -146,25 +148,45 @@ TOOLS = [
         },
     },
     {
+        "name": "get_document",
+        "description": "获取平台上指定文档的完整内容（Markdown 正文）",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "document_id": {"type": "string", "description": "文档 ID"},
+            },
+            "required": ["document_id"],
+        },
+    },
+    {
         "name": "setup_dev_environment",
         "description": "安装 superpowers 技能包和 CodeSeer 专属技能到本地 AI 工具",
         "inputSchema": {"type": "object", "properties": {}, "required": []},
     },
+    {
+        "name": "download_attachment",
+        "description": "下载需求的附件内容（返回 base64 编码）",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "requirement_id": {"type": "string", "description": "需求 ID"},
+                "attachment_id": {"type": "string", "description": "附件 ID"},
+            },
+            "required": ["requirement_id", "attachment_id"],
+        },
+    },
 ]
 
-ACTIVE_STATUSES = ["assigned", "claimed", "in_progress"]
+ACTIVE_STATUSES = ["assigned", "in_progress"]
 
 TRANSITIONS: dict[str, list[str]] = {
-    "draft":            ["pending_analysis"],
-    "pending_analysis": ["analyzed"],
-    "analyzed":         ["assigned"],
-    "assigned":         ["claimed", "analyzed"],
-    "claimed":          ["in_progress"],
-    "in_progress":      ["pending_review"],
-    "pending_review":   ["review_approved", "review_rejected"],
-    "review_approved":  ["completed"],
-    "review_rejected":  ["in_progress"],
-    "completed":        [],
+    "draft":           ["assigned"],
+    "assigned":        ["in_progress"],
+    "in_progress":     ["pending_review"],
+    "pending_review":  ["review_approved", "review_rejected"],
+    "review_approved": ["completed"],
+    "review_rejected": ["in_progress"],
+    "completed":       [],
 }
 
 KNOWN_TOOLS = {t["name"] for t in TOOLS}

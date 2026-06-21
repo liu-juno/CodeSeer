@@ -131,9 +131,14 @@
                     </div>
                   </template>
                 </el-table-column>
-                <el-table-column prop="estimated_hours" label="预估工时" width="100">
+                <el-table-column prop="estimated_hours" label="预估工时" width="90">
                   <template #default="{ row }">
                     <el-text type="info">{{ row.estimated_hours ? row.estimated_hours + 'h' : '-' }}</el-text>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="actual_hours" label="实际工时" width="90">
+                  <template #default="{ row }">
+                    <el-text :type="row.actual_hours ? 'primary' : 'info'">{{ row.actual_hours ? row.actual_hours + 'h' : '-' }}</el-text>
                   </template>
                 </el-table-column>
                 <el-table-column prop="completed_at" label="完成时间" width="120">
@@ -190,8 +195,21 @@
                   </div>
                 </div>
               </div>
-              <el-table :data="testRecords" stripe style="margin-top:12px;">
-                <el-table-column prop="task_title" label="关联任务" min-width="150" />
+              <el-table :data="testRecords" stripe style="margin-top:12px;" row-key="id">
+                <el-table-column type="expand">
+                  <template #default="{ row }">
+                    <div v-if="row.failed_tests" style="padding:12px 24px; background:#1a1a1a; border-radius:6px; margin:4px 16px;">
+                      <div style="font-size:12px; color:#f87171; font-weight:600; margin-bottom:8px;">失败用例</div>
+                      <div
+                        v-for="(line, i) in row.failed_tests.split('\n').filter(Boolean)"
+                        :key="i"
+                        style="font-size:12px; color:#fca5a5; font-family:monospace; padding:2px 0;"
+                      >✗ {{ line }}</div>
+                    </div>
+                    <div v-else style="padding:8px 24px; color:#6b7280; font-size:12px;">无失败用例详情</div>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="task_title" label="关联任务 / 阶段" min-width="150" />
                 <el-table-column prop="test_type" label="类型" width="80" />
                 <el-table-column prop="total_count" label="总数" width="60" />
                 <el-table-column prop="passed_count" label="通过" width="60">
@@ -199,7 +217,7 @@
                 </el-table-column>
                 <el-table-column prop="failed_count" label="失败" width="60">
                   <template #default="{ row }">
-                    <span :style="row.failed_count > 0 ? 'color:#dc2626' : ''">{{ row.failed_count }}</span>
+                    <span :style="row.failed_count > 0 ? 'color:#dc2626; font-weight:600' : ''">{{ row.failed_count }}</span>
                   </template>
                 </el-table-column>
                 <el-table-column prop="coverage" label="覆盖率" width="80">

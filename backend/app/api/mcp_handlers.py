@@ -49,7 +49,10 @@ async def _advance_phase(req_id: str, phase_type: PhaseType, status: PhaseStatus
     )
     phase = result.scalar_one_or_none()
     if phase is None:
-        return
+        # 记录不存在时自动创建，避免 MCP 调用时静默跳过
+        phase = RequirementPhase(requirement_id=req_id, phase=phase_type, status=PhaseStatus.PENDING)
+        db.add(phase)
+        await db.flush()
     if phase.status == status:
         return
     phase.status = status
@@ -325,6 +328,13 @@ async def _start_brainstorming(args: dict, user, db: AsyncSession) -> dict:
     )
 
     await _advance_phase(req_id, PhaseType.CLARIFICATION, PhaseStatus.IN_PROGRESS, db)
+
+    # 自动推进需求状态：assigned → in_progress
+    current_status = req.status.value if hasattr(req.status, "value") else str(req.status)
+    if current_status == "assigned":
+        req.status = RequirementStatus("in_progress")
+        req.updated_at = datetime.utcnow()
+
     await db.commit()
 
     template = _read_template("brainstorm_instruction")

@@ -5,126 +5,100 @@
         <h1 class="page-title">用户与角色</h1>
         <p class="page-subtitle">管理平台用户、分配角色、配置权限</p>
       </div>
-      <button class="btn btn-primary" @click="openCreate">
-        <span>＋</span> 邀请用户
-      </button>
+      <el-button type="primary" @click="openCreate">
+        <el-icon><Plus /></el-icon> 邀请用户
+      </el-button>
     </div>
 
-    <div class="card" style="padding:0; overflow:hidden;">
-      <table class="table">
-        <thead>
-          <tr>
-            <th>用户</th>
-            <th>邮箱</th>
-            <th>角色</th>
-            <th>状态</th>
-            <th>创建时间</th>
-            <th style="width:160px"></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="u in users" :key="u.id">
-            <td>
-              <div style="display:flex; align-items:center; gap:10px;">
-                <div class="user-avatar" :style="{ background: u.avatar_color }">{{ u.name.slice(0, 1) }}</div>
-                <span style="font-weight:500;">{{ u.name }}</span>
-              </div>
-            </td>
-            <td class="text-muted text-small">{{ u.email }}</td>
-            <td>
-              <span :class="['role-badge', u.role]">{{ roleLabel(u.role) }}</span>
-            </td>
-            <td>
-              <span :class="['status-badge', u.is_active ? 'active' : 'inactive']">
-                {{ u.is_active ? '活跃' : '禁用' }}
-              </span>
-            </td>
-            <td class="text-muted text-small">{{ u.created_at ? new Date(u.created_at).toLocaleDateString('zh-CN') : '-' }}</td>
-            <td>
-              <div class="action-row">
-                <button class="btn-link" @click="openEdit(u)">编辑</button>
-                <button class="btn-link danger" @click="deleteUser(u)">删除</button>
-              </div>
-            </td>
-          </tr>
-          <tr v-if="users.length === 0">
-            <td colspan="6">
-              <div class="empty-state">
-                <div class="empty-state-icon">☉</div>
-                <div class="empty-state-text">还没有用户，点击「邀请用户」开始</div>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <el-card shadow="never" body-style="padding:0;">
+      <el-table :data="users" stripe>
+        <el-table-column label="用户" min-width="200">
+          <template #default="{ row }">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <div class="user-avatar" :style="{ background: row.avatar_color }">{{ row.name.slice(0, 1) }}</div>
+              <span style="font-weight:500;">{{ row.name }}</span>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column prop="email" label="邮箱" min-width="180">
+          <template #default="{ row }">
+            <el-text type="info">{{ row.email }}</el-text>
+          </template>
+        </el-table-column>
+        <el-table-column label="角色" width="120">
+          <template #default="{ row }">
+            <el-tag :type="roleTagType(row.role)" size="small">{{ roleLabel(row.role) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="状态" width="80">
+          <template #default="{ row }">
+            <el-tag :type="row.is_active ? 'success' : 'info'" size="small">{{ row.is_active ? '活跃' : '禁用' }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="创建时间" width="120">
+          <template #default="{ row }">
+            <el-text type="info">{{ row.created_at ? new Date(row.created_at).toLocaleDateString('zh-CN') : '-' }}</el-text>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="120" align="right">
+          <template #default="{ row }">
+            <el-button text size="small" type="primary" @click="openEdit(row)">编辑</el-button>
+            <el-button text size="small" type="danger" @click="deleteUser(row)">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
 
-    <!-- Role permissions card -->
-    <div class="card" style="margin-top:16px;">
-      <div class="card-title">角色权限矩阵</div>
-      <table class="table">
-        <thead>
-          <tr>
-            <th>角色</th>
-            <th>权限</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="(perms, role) in rolePermissions" :key="role">
-            <td style="font-weight:600; vertical-align:top; width:140px;">
-              <span :class="['role-badge', role]">{{ roleLabel(role) }}</span>
-            </td>
-            <td>
-              <div class="perm-tags">
-                <span v-for="p in perms" :key="p" class="perm-tag">{{ p }}</span>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <el-card shadow="never" style="margin-top:16px;">
+      <template #header>
+        <div style="font-weight:600;">角色权限矩阵</div>
+      </template>
+      <el-table :data="rolePermissionsTable" stripe size="small">
+        <el-table-column prop="role" label="角色" width="160">
+          <template #default="{ row }">
+            <el-tag :type="roleTagType(row.key)" size="small">{{ row.label }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="权限">
+          <template #default="{ row }">
+            <div style="display:flex; flex-wrap:wrap; gap:4px;">
+              <el-tag v-for="p in row.permissions" :key="p" size="small" type="info">{{ p }}</el-tag>
+            </div>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
 
-    <!-- Create/Edit Modal -->
-    <div v-if="showForm" class="modal-overlay" @click.self="closeForm">
-      <div class="modal" style="width:480px;">
-        <div class="modal-header">
-          <h3>{{ editing ? '编辑用户' : '邀请用户' }}</h3>
-          <button class="modal-close" @click="closeForm">✕</button>
-        </div>
-        <div class="modal-body">
-          <div class="form-group">
-            <label class="form-label">姓名 <span class="required">*</span></label>
-            <input v-model="form.name" class="form-input" placeholder="如：张三" autofocus />
-          </div>
-          <div class="form-group">
-            <label class="form-label">邮箱 <span class="required">*</span></label>
-            <input v-model="form.email" class="form-input" placeholder="user@company.com" :disabled="!!editing" />
-          </div>
-          <div class="form-group">
-            <label class="form-label">角色</label>
-            <select v-model="form.role" class="form-input">
-              <option v-for="r in roleOptions" :key="r.value" :value="r.value">{{ r.label }}</option>
-            </select>
-          </div>
-          <div class="form-group" style="margin-bottom:0">
-            <label class="form-label">密码 {{ editing ? '（留空不修改）' : '*' }}</label>
-            <input v-model="form.password" type="password" class="form-input" placeholder="••••••••" />
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-secondary" @click="closeForm">取消</button>
-          <button class="btn btn-primary" :disabled="!form.name.trim() || !form.email.trim() || saving" @click="saveUser">
-            {{ saving ? '保存中...' : '保存' }}
-          </button>
-        </div>
-      </div>
-    </div>
+    <el-dialog v-model="showForm" :title="editing ? '编辑用户' : '邀请用户'" width="480px">
+      <el-form :model="form" label-position="top">
+        <el-form-item label="姓名" required>
+          <el-input v-model="form.name" placeholder="如：张三" />
+        </el-form-item>
+        <el-form-item label="邮箱" required>
+          <el-input v-model="form.email" placeholder="user@company.com" :disabled="!!editing" />
+        </el-form-item>
+        <el-form-item label="角色">
+          <el-select v-model="form.role" style="width:100%;">
+            <el-option v-for="r in roleOptions" :key="r.value" :label="r.label" :value="r.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item :label="editing ? '密码（留空不修改）' : '密码'">
+          <el-input v-model="form.password" type="password" placeholder="••••••••" show-password />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="closeForm">取消</el-button>
+        <el-button type="primary" :loading="saving" :disabled="!form.name.trim() || !form.email.trim()" @click="saveUser">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { usersApi } from '@/api'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Plus } from '@element-plus/icons-vue'
 
 const users = ref<any[]>([])
 const rolePermissions = ref<Record<string, string[]>>({})
@@ -140,6 +114,19 @@ const roleOptions = [
   { value: 'developer', label: '开发者' },
   { value: 'viewer', label: '访客' },
 ]
+
+const rolePermissionsTable = computed(() =>
+  Object.entries(rolePermissions.value).map(([key, perms]) => ({
+    key,
+    label: roleLabel(key),
+    permissions: perms,
+  }))
+)
+
+const roleTagType = (r: string) => ({
+  admin: 'danger', product_manager: '', project_manager: 'primary',
+  developer: 'success', viewer: 'info',
+}[r] || 'info')
 
 const roleLabel = (r: string) => ({
   admin: '管理员', product_manager: '产品经理', project_manager: '项目经理',
@@ -171,17 +158,19 @@ const saveUser = async () => {
       await usersApi.create(form.value)
     }
     closeForm()
+    ElMessage.success('保存成功')
     fetchData()
-  } catch (e: any) { alert(e?.response?.data?.detail || '保存失败') }
+  } catch (e: any) { ElMessage.error(e?.response?.data?.detail || '保存失败') }
   finally { saving.value = false }
 }
 
 const deleteUser = async (u: any) => {
-  if (!confirm(`删除用户「${u.name}」？`)) return
   try {
+    await ElMessageBox.confirm(`删除用户「${u.name}」？`, '提示', { type: 'warning' })
     await usersApi.delete(u.id)
+    ElMessage.success('删除成功')
     fetchData()
-  } catch (e) { console.error(e) }
+  } catch (e) { if (e !== 'cancel') console.error(e) }
 }
 
 const fetchData = async () => {
@@ -196,38 +185,17 @@ onMounted(fetchData)
 </script>
 
 <style scoped>
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+.page-title { font-size: 20px; font-weight: 700; color: #1f2329; margin: 0; }
+.page-subtitle { font-size: 13px; color: #969ba4; margin: 4px 0 0 0; }
 .user-avatar {
   width: 28px; height: 28px; border-radius: 50%;
   color: white; font-size: 12px; font-weight: 700;
   display: flex; align-items: center; justify-content: center;
-}
-
-.role-badge {
-  font-size: 12px; font-weight: 500;
-  padding: 2px 8px; border-radius: 4px;
-  display: inline-block;
-}
-.role-badge.admin            { background: #fee2e2; color: #991b1b; }
-.role-badge.product_manager  { background: #ede9fe; color: #5b21b6; }
-.role-badge.project_manager  { background: #dbeafe; color: #1e40af; }
-.role-badge.developer        { background: #d1fae5; color: #065f46; }
-.role-badge.viewer           { background: #f3f4f6; color: #6b7280; }
-
-.status-badge.active   { background: #d1fae5; color: #065f46; }
-.status-badge.inactive { background: #f3f4f6; color: #6b7280; }
-
-.action-row { display: flex; gap: 12px; }
-.btn-link {
-  background: none; border: none; cursor: pointer;
-  color: #6366f1; font-size: 13px; padding: 0;
-}
-.btn-link:hover { text-decoration: underline; }
-.btn-link.danger { color: #dc2626; }
-
-.perm-tags { display: flex; flex-wrap: wrap; gap: 4px; }
-.perm-tag {
-  font-family: monospace; font-size: 11px;
-  background: #f3f4f6; color: #374151;
-  padding: 2px 6px; border-radius: 4px;
 }
 </style>

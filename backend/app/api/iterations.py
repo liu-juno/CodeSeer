@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from typing import List
@@ -7,17 +7,31 @@ from datetime import datetime
 
 from app.core.database import get_db
 from app.models.models import Iteration, Requirement
-from app.schemas.schemas import IterationCreate, IterationUpdate, IterationResponse
+from app.schemas.schemas import IterationCreate, IterationUpdate, IterationResponse, PaginatedResponse
 from app.api.documents import archive_requirement_drafts
 
 router = APIRouter(prefix="/iterations", tags=["iterations"])
 
 
-@router.get("", response_model=List[IterationResponse])
-async def list_iterations(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Iteration).order_by(Iteration.created_at.desc()))
-    iterations = result.scalars().all()
-    return iterations
+@router.get("", response_model=PaginatedResponse[IterationResponse])
+async def list_iterations(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+):
+    count_result = await db.execute(select(func.count()).select_from(Iteration))
+    total = count_result.scalar() or 0
+
+    offset = (page - 1) * page_size
+    result = await db.execute(
+        select(Iteration)
+        .order_by(Iteration.created_at.desc())
+        .offset(offset)
+        .limit(page_size)
+    )
+    items = result.scalars().all()
+
+    return PaginatedResponse(items=items, total=total, page=page, page_size=page_size)
 
 
 @router.post("", response_model=IterationResponse)

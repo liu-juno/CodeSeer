@@ -20,6 +20,30 @@
   
   --sidebar-width: 56px;
   --topbar-height: 48px;
+
+  /* Element Plus 主题覆盖 */
+  --el-color-primary: #2d5bff;
+  --el-color-primary-light-3: #5a7bff;
+  --el-color-primary-light-5: #8aa3ff;
+  --el-color-primary-light-7: #b8cbff;
+  --el-color-primary-light-8: #d0deff;
+  --el-color-primary-light-9: #e8eeff;
+  --el-border-radius-base: 8px;
+  --el-border-radius-small: 6px;
+  --el-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', 'Helvetica Neue', Arial, sans-serif;
+  --el-text-color-primary: #1f2329;
+  --el-text-color-regular: #646a73;
+  --el-text-color-secondary: #969ba4;
+  --el-fill-color-blank: #ffffff;
+  --el-bg-color: #f5f7ff;
+  --el-border-color: #e8e9eb;
+  --el-border-color-light: #f0f1f5;
+  --el-table-border-color: #e8e9eb;
+  --el-table-header-bg-color: #f5f7ff;
+  --el-table-row-hover-bg-color: #fafafa;
+  --el-dialog-border-radius: 14px;
+  --el-button-border-radius: 8px;
+  --el-input-border-radius: 8px;
 }
 
 * {

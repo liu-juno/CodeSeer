@@ -79,7 +79,7 @@ async def mcp_list_requirements(
     db: AsyncSession = Depends(get_db),
 ):
     query = select(Requirement).where(
-        Requirement.status.in_(["assigned", "claimed", "in_progress"])
+        Requirement.status.in_(["assigned", "in_progress"])
     )
     if assignee_id:
         query = query.where(Requirement.assignee_id == str(assignee_id))
@@ -102,7 +102,7 @@ async def mcp_my_context(
         select(Requirement.project_id)
         .where(
             Requirement.assignee_id == str(assignee_id),
-            Requirement.status.in_(["assigned", "claimed", "in_progress"]),
+            Requirement.status.in_(["assigned", "in_progress"]),
         )
         .distinct()
     )
@@ -139,7 +139,7 @@ async def mcp_my_context(
         select(Requirement)
         .where(
             Requirement.assignee_id == str(assignee_id),
-            Requirement.status.in_(["assigned", "claimed", "in_progress"]),
+            Requirement.status.in_(["assigned", "in_progress"]),
         )
         .order_by(Requirement.priority.asc(), Requirement.due_date.asc())
     )

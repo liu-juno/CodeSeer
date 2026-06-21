@@ -20,11 +20,8 @@ router = APIRouter(prefix="/config", tags=["config"])
 # ── State Machine ──────────────────────────────────────────────────────────
 
 DEFAULT_TRANSITIONS = {
-    "draft": ["pending_analysis"],
-    "pending_analysis": ["analyzed"],
-    "analyzed": ["assigned"],
-    "assigned": ["claimed", "analyzed"],
-    "claimed": ["in_progress"],
+    "draft": ["assigned"],
+    "assigned": ["in_progress"],
     "in_progress": ["pending_review"],
     "pending_review": ["review_approved", "review_rejected"],
     "review_approved": ["completed"],
@@ -34,8 +31,7 @@ DEFAULT_TRANSITIONS = {
 
 
 STATE_NAMES = {
-    "draft": "草稿", "pending_analysis": "待分析", "analyzed": "已分析",
-    "assigned": "已指派", "claimed": "已领取", "in_progress": "开发中",
+    "draft": "草稿", "assigned": "已指派", "in_progress": "开发中",
     "pending_review": "待评审", "review_approved": "评审通过",
     "review_rejected": "评审驳回", "completed": "已完成",
 }

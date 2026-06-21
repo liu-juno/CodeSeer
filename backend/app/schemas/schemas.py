@@ -1,8 +1,17 @@
 from pydantic import BaseModel, field_validator
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Generic, TypeVar
 from datetime import datetime, date
 from uuid import UUID
 from enum import Enum
+
+T = TypeVar("T")
+
+
+class PaginatedResponse(BaseModel, Generic[T]):
+    items: List[T]
+    total: int
+    page: int
+    page_size: int
 
 
 class ProjectStatus(str, Enum):
@@ -21,10 +30,7 @@ class IterationStatus(str, Enum):
 
 class RequirementStatus(str, Enum):
     DRAFT = "draft"
-    PENDING_ANALYSIS = "pending_analysis"
-    ANALYZED = "analyzed"
     ASSIGNED = "assigned"
-    CLAIMED = "claimed"
     IN_PROGRESS = "in_progress"
     PENDING_REVIEW = "pending_review"
     REVIEW_APPROVED = "review_approved"
@@ -45,19 +51,18 @@ class ProjectBase(BaseModel):
     identifier: Optional[str] = None
     description: Optional[str] = None
 
+
+class ProjectCreate(ProjectBase):
+    identifier: str  # required on create
+    owner_id: Optional[UUID] = None
+
     @field_validator("identifier")
     @classmethod
-    def validate_identifier(cls, v: Optional[str]) -> Optional[str]:
-        if v is None:
-            return v
+    def validate_identifier(cls, v: str) -> str:
         import re
         if not re.match(r'^[a-z][a-z0-9-]{1,48}[a-z0-9]$', v):
             raise ValueError("identifier 只能包含小写字母、数字和连字符，长度 3-50，首尾必须是字母或数字")
         return v
-
-
-class ProjectCreate(ProjectBase):
-    owner_id: Optional[UUID] = None
 
 
 class ProjectUpdate(BaseModel):
@@ -75,6 +80,7 @@ class ProjectUpdate(BaseModel):
         if not re.match(r'^[a-z][a-z0-9-]{1,48}[a-z0-9]$', v):
             raise ValueError("identifier 只能包含小写字母、数字和连字符，长度 3-50，首尾必须是字母或数字")
         return v
+
 
 
 class ProjectResponse(ProjectBase):
@@ -328,6 +334,7 @@ class DocumentVersionResponse(BaseModel):
 class ModuleBase(BaseModel):
     name: str
     description: Optional[str] = None
+    project_id: Optional[str] = None
     parent_id: Optional[str] = None
     path: Optional[str] = None
 

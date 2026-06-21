@@ -1,29 +1,35 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from typing import List
+from typing import List, Optional
+from pydantic import BaseModel
 
 from app.core.database import get_db
-from app.models.models import Module, Document, Skill
+from app.models.models import Module, Document, Skill, Project
 from app.schemas.schemas import ModuleCreate, ModuleUpdate, ModuleResponse, SkillResponse
 
 router = APIRouter(prefix="/modules", tags=["modules"])
 
 
-def build_tree(modules: List[Module], doc_counts: dict) -> List[dict]:
-    nodes = {m.id: {
+def _module_dict(m: Module, doc_count: int = 0, children: list = None) -> dict:
+    return {
         "id": m.id,
         "name": m.name,
         "description": m.description,
         "parent_id": m.parent_id,
         "path": m.path,
+        "project_id": m.project_id,
         "is_active": m.is_active,
         "skill_id": m.skill_id,
         "created_at": m.created_at,
         "updated_at": m.updated_at,
-        "document_count": doc_counts.get(m.id, 0),
-        "children": [],
-    } for m in modules}
+        "document_count": doc_count,
+        "children": children if children is not None else [],
+    }
+
+
+def build_tree(modules: List[Module], doc_counts: dict) -> List[dict]:
+    nodes = {m.id: _module_dict(m, doc_counts.get(m.id, 0)) for m in modules}
     roots = []
     for m in modules:
         node = nodes[m.id]
@@ -35,8 +41,11 @@ def build_tree(modules: List[Module], doc_counts: dict) -> List[dict]:
 
 
 @router.get("")
-async def list_modules(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Module).order_by(Module.created_at))
+async def list_modules(project_id: Optional[str] = Query(None), db: AsyncSession = Depends(get_db)):
+    query = select(Module).order_by(Module.created_at)
+    if project_id:
+        query = query.where(Module.project_id == project_id)
+    result = await db.execute(query)
     modules = result.scalars().all()
     doc_counts = {}
     if modules:
@@ -51,34 +60,33 @@ async def list_modules(db: AsyncSession = Depends(get_db)):
     return build_tree(modules, doc_counts)
 
 
-@router.post("", response_model=ModuleResponse)
+@router.post("")
 async def create_module(mod: ModuleCreate, db: AsyncSession = Depends(get_db)):
     data = mod.model_dump()
     if data.get("parent_id"):
-        # check parent exists
-        parent = await db.execute(select(Module).where(Module.id == data["parent_id"]))
-        if not parent.scalar_one_or_none():
+        parent_result = await db.execute(select(Module).where(Module.id == data["parent_id"]))
+        parent_module = parent_result.scalar_one_or_none()
+        if not parent_module:
             raise HTTPException(status_code=400, detail="Parent module not found")
-        parent_module = parent.scalar_one()
         data["path"] = f"{parent_module.path or '/'}{parent_module.name}/"
     data["parent_id"] = str(data["parent_id"]) if data.get("parent_id") else None
     db_module = Module(**data)
     db.add(db_module)
     await db.commit()
     await db.refresh(db_module)
-    return db_module
+    return _module_dict(db_module)
 
 
-@router.get("/{module_id}", response_model=ModuleResponse)
+@router.get("/{module_id}")
 async def get_module(module_id: str, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Module).where(Module.id == module_id))
     mod = result.scalar_one_or_none()
     if not mod:
         raise HTTPException(status_code=404, detail="Module not found")
-    return mod
+    return _module_dict(mod)
 
 
-@router.put("/{module_id}", response_model=ModuleResponse)
+@router.put("/{module_id}")
 async def update_module(module_id: str, update: ModuleUpdate, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Module).where(Module.id == module_id))
     mod = result.scalar_one_or_none()
@@ -90,7 +98,7 @@ async def update_module(module_id: str, update: ModuleUpdate, db: AsyncSession =
         setattr(mod, k, v)
     await db.commit()
     await db.refresh(mod)
-    return mod
+    return _module_dict(mod)
 
 
 @router.delete("/{module_id}")
@@ -140,52 +148,73 @@ async def get_module_knowledge(module_id: str, db: AsyncSession = Depends(get_db
     }
 
 
+class GenerateSkillRequest(BaseModel):
+    name: str
+    description: Optional[str] = None
+    document_ids: List[str]
+
+
 @router.post("/{module_id}/generate-skill", response_model=SkillResponse)
-async def generate_skill(module_id: str, db: AsyncSession = Depends(get_db)):
-    """基于模块归档文档自动生成 Skill"""
+async def generate_skill(module_id: str, body: GenerateSkillRequest, db: AsyncSession = Depends(get_db)):
+    """基于手动勾选的归档文档创建 Skill"""
     mod = (await db.execute(select(Module).where(Module.id == module_id))).scalar_one_or_none()
     if not mod:
         raise HTTPException(status_code=404, detail="Module not found")
 
+    if not body.document_ids:
+        raise HTTPException(status_code=400, detail="请至少勾选一份文档")
+
     docs = (await db.execute(
-        select(Document).where(Document.module_id == module_id, Document.status == "archived")
+        select(Document).where(
+            Document.id.in_(body.document_ids),
+            Document.module_id == module_id,
+            Document.status == "archived",
+        )
     )).scalars().all()
 
     if not docs:
-        raise HTTPException(status_code=400, detail="模块下无归档文档，无法生成 Skill")
+        raise HTTPException(status_code=400, detail="未找到有效的归档文档")
 
-    # 汇总所有归档文档的关键点作为 prompt 模板
-    key_points = []
-    summaries = []
-    for d in docs:
-        if d.summary:
-            summaries.append(f"## {d.title}\n{d.summary}")
-        if d.key_points:
-            key_points.extend(d.key_points.split("\n"))
+    # 查询项目名，拼接 Skill 全名：{项目名}_{模块名}_{用户输入功能名}
+    project_name = ""
+    if mod.project_id:
+        proj = (await db.execute(select(Project).where(Project.id == mod.project_id))).scalar_one_or_none()
+        if proj:
+            project_name = proj.name
+    skill_name = f"{project_name}_{mod.name}_{body.name}".strip("_")
+
+    doc_refs = "\n".join(
+        f"- {d.title}（id: `{d.id}`）" for d in docs
+    )
 
     prompt = f"""你是 {mod.name} 模块的领域专家。
-该模块沉淀了 {len(docs)} 份归档文档。
 
-## 文档摘要汇总
+## 知识库文档（{len(docs)} 份）
 
-{chr(10).join(summaries)}
+{doc_refs}
 
-## 关键要点
+## 使用说明
 
-{chr(10).join(f"- {p}" for p in key_points[:20])}
+当你需要查阅某份文档的具体内容时，调用 MCP 工具：
+
+```
+get_document(document_id="<上方对应的 id>")
+```
+
+工具会返回该文档的完整 Markdown 正文，请基于返回内容回答问题。
 
 ## 你的职责
 
 当用户处理 {mod.name} 模块相关需求时：
-1. 引用上述沉淀的知识回答问题
-2. 提示用户遵循已有的设计规范
-3. 在代码建议中体现该模块的架构风格
+1. 根据问题判断需要查阅哪份文档，调用 get_document 获取内容
+2. 基于文档内容给出准确回答，并引用具体章节
+3. 在代码建议中体现文档中描述的架构规范与约束
 """
     skill = Skill(
-        name=f"{mod.name} 领域知识",
+        name=skill_name,
         module_id=module_id,
-        description=f"基于 {len(docs)} 份归档文档自动生成",
-        source="auto_generated",
+        description=body.description or f"基于 {len(docs)} 份归档文档",
+        source="manual",
         status="active",
         prompt_template=prompt,
         parameters='{"temperature": 0.3, "max_tokens": 4000}',
@@ -198,3 +227,19 @@ async def generate_skill(module_id: str, db: AsyncSession = Depends(get_db)):
     await db.commit()
 
     return skill
+
+
+@router.delete("/{module_id}/skill")
+async def delete_skill(module_id: str, db: AsyncSession = Depends(get_db)):
+    """删除模块关联的 Skill"""
+    mod = (await db.execute(select(Module).where(Module.id == module_id))).scalar_one_or_none()
+    if not mod:
+        raise HTTPException(status_code=404, detail="Module not found")
+    if not mod.skill_id:
+        raise HTTPException(status_code=404, detail="该模块暂无 Skill")
+    skill = (await db.execute(select(Skill).where(Skill.id == mod.skill_id))).scalar_one_or_none()
+    if skill:
+        await db.delete(skill)
+    mod.skill_id = None
+    await db.commit()
+    return {"message": "Skill 已删除"}

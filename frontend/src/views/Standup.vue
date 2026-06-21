@@ -6,134 +6,163 @@
         <p class="page-subtitle">按开发人员查看需求进度与阻塞情况</p>
       </div>
       <div style="display:flex;gap:10px;align-items:center;">
-        <select v-model="selectedIteration" class="form-input" style="width:200px">
-          <option value="">全部迭代</option>
-          <option v-for="it in iterations" :key="it.id" :value="it.id">{{ it.name }}</option>
-        </select>
+        <el-select v-model="selectedIteration" placeholder="全部迭代" style="width:200px" clearable>
+          <el-option v-for="it in iterations" :key="it.id" :label="it.name" :value="it.id" />
+        </el-select>
       </div>
     </div>
 
-    <!-- Overview stats -->
-    <div class="stats-grid" style="margin-bottom:20px;">
-      <div class="stat-card">
-        <div class="stat-icon indigo">◇</div>
-        <div class="stat-body">
-          <div class="stat-value">{{ overview.total }}</div>
-          <div class="stat-label">总需求</div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon amber">↻</div>
-        <div class="stat-body">
-          <div class="stat-value">{{ overview.inProgress }}</div>
-          <div class="stat-label">进行中</div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon green">✓</div>
-        <div class="stat-body">
-          <div class="stat-value">{{ overview.completed }}</div>
-          <div class="stat-label">已完成</div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon purple">◈</div>
-        <div class="stat-body">
-          <div class="stat-value">{{ overview.unassigned }}</div>
-          <div class="stat-label">待指派</div>
-        </div>
-      </div>
+    <el-row :gutter="14" style="margin-bottom:20px;">
+      <el-col :span="6">
+        <el-card shadow="never" body-style="padding:16px;">
+          <div style="display:flex; align-items:center; gap:14px;">
+            <div class="stat-icon indigo">◇</div>
+            <div>
+              <div class="stat-value">{{ overview.total }}</div>
+              <div class="stat-label">总需求</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card shadow="never" body-style="padding:16px;">
+          <div style="display:flex; align-items:center; gap:14px;">
+            <div class="stat-icon amber">↻</div>
+            <div>
+              <div class="stat-value">{{ overview.inProgress }}</div>
+              <div class="stat-label">进行中</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card shadow="never" body-style="padding:16px;">
+          <div style="display:flex; align-items:center; gap:14px;">
+            <div class="stat-icon green">✓</div>
+            <div>
+              <div class="stat-value">{{ overview.completed }}</div>
+              <div class="stat-label">已完成</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card shadow="never" body-style="padding:16px;">
+          <div style="display:flex; align-items:center; gap:14px;">
+            <div class="stat-icon purple">◈</div>
+            <div>
+              <div class="stat-value">{{ overview.unassigned }}</div>
+              <div class="stat-label">待指派</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
+
+    <div v-if="loading">
+      <el-skeleton :rows="5" animated />
     </div>
 
-    <div v-if="loading" class="card"><div class="text-muted">加载中...</div></div>
+    <el-card v-if="overdueReqs.length" shadow="never" style="margin-bottom:16px;">
+      <template #header>
+        <span style="color:#dc2626; font-weight:600;">🔥 延期提醒 ({{ overdueReqs.length }})</span>
+      </template>
+      <el-table :data="overdueReqs" stripe size="small">
+        <el-table-column prop="title" label="需求标题" min-width="200">
+          <template #default="{ row }">
+            <el-link type="primary" underline="never" @click="$router.push(`/requirement/${row.id}`)">{{ row.title }}</el-link>
+          </template>
+        </el-table-column>
+        <el-table-column prop="assignee_id" label="负责人" width="120">
+          <template #default="{ row }">
+            <el-text type="info">{{ row.assignee_id ? row.assignee_id.slice(0, 8) : '未指派' }}</el-text>
+          </template>
+        </el-table-column>
+        <el-table-column prop="due_date" label="截止日期" width="120">
+          <template #default="{ row }">
+            <el-text>{{ formatDate(row.due_date) }}</el-text>
+          </template>
+        </el-table-column>
+        <el-table-column label="已延期" width="80">
+          <template #default="{ row }">
+            <el-tag type="danger" size="small">{{ daysOverdue(row.due_date) }} 天</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="priority" label="优先级" width="80">
+          <template #default="{ row }">
+            <el-tag :type="priorityType(row.priority)" size="small" effect="plain">{{ row.priority }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="status" label="状态" width="100">
+          <template #default="{ row }">
+            <el-tag :type="statusType(row.status)" size="small">{{ statusText(row.status) }}</el-tag>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
 
-    <!-- Unassigned requirements -->
-    <div v-if="overdueReqs.length" class="card mb-16">
-      <div class="card-title" style="color:#dc2626;">🔥 延期提醒 ({{ overdueReqs.length }})</div>
-      <table class="table">
-        <thead>
-          <tr><th>需求标题</th><th>负责人</th><th>截止日期</th><th>已延期</th><th>优先级</th><th>状态</th></tr>
-        </thead>
-        <tbody>
-          <tr v-for="req in overdueReqs" :key="req.id">
-            <td>
-              <router-link :to="`/requirement/${req.id}`" class="link">{{ req.title }}</router-link>
-            </td>
-            <td class="text-muted text-medium">
-              {{ req.assignee_id ? req.assignee_id.slice(0, 8) : '未指派' }}
-            </td>
-            <td class="text-medium">{{ formatDate(req.due_date) }}</td>
-            <td>
-              <span class="overdue-tag">{{ daysOverdue(req.due_date) }} 天</span>
-            </td>
-            <td><span :class="['priority-badge', req.priority]">{{ req.priority }}</span></td>
-            <td><span :class="['status-badge', req.status]">{{ statusText(req.status) }}</span></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <el-card v-if="unassignedReqs.length" shadow="never" style="margin-bottom:16px;">
+      <template #header>
+        <span style="color:#d97706; font-weight:600;">⚠ 待指派需求 ({{ unassignedReqs.length }})</span>
+      </template>
+      <el-table :data="unassignedReqs" stripe size="small">
+        <el-table-column prop="title" label="需求标题" min-width="200">
+          <template #default="{ row }">
+            <el-link type="primary" underline="never" @click="$router.push(`/requirement/${row.id}`)">{{ row.title }}</el-link>
+          </template>
+        </el-table-column>
+        <el-table-column prop="priority" label="优先级" width="80">
+          <template #default="{ row }">
+            <el-tag :type="priorityType(row.priority)" size="small" effect="plain">{{ row.priority }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="iteration_id" label="迭代" width="120">
+          <template #default="{ row }">
+            <el-text type="info">{{ getIterationName(row.iteration_id) }}</el-text>
+          </template>
+        </el-table-column>
+        <el-table-column prop="status" label="状态" width="100">
+          <template #default="{ row }">
+            <el-tag :type="statusType(row.status)" size="small">{{ statusText(row.status) }}</el-tag>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
 
-    <!-- Unassigned requirements -->
-    <div v-if="unassignedReqs.length" class="card mb-16">
-      <div class="card-title" style="color:#d97706;">⚠ 待指派需求 ({{ unassignedReqs.length }})</div>
-      <table class="table">
-        <thead>
-          <tr><th>需求标题</th><th>优先级</th><th>迭代</th><th>状态</th></tr>
-        </thead>
-        <tbody>
-          <tr v-for="req in unassignedReqs" :key="req.id">
-            <td>
-              <router-link :to="`/requirement/${req.id}`" class="link">{{ req.title }}</router-link>
-            </td>
-            <td><span :class="['priority-badge', req.priority]">{{ req.priority }}</span></td>
-            <td class="text-muted text-medium">{{ getIterationName(req.iteration_id) }}</td>
-            <td><span :class="['status-badge', req.status]">{{ statusText(req.status) }}</span></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <!-- Per-developer cards -->
     <div v-if="!loading">
-      <div v-if="developerGroups.length === 0" class="card">
-        <div class="empty-state">
-          <div class="empty-state-icon">◈</div>
-          <div class="empty-state-text">暂无已指派的需求</div>
-        </div>
-      </div>
-      <div v-for="dev in developerGroups" :key="dev.assigneeId" class="dev-card card mb-16">
-        <div class="dev-card-header">
-          <div class="dev-avatar">{{ dev.assigneeId.slice(0, 2).toUpperCase() }}</div>
-          <div class="dev-info">
-            <div class="dev-name">开发者 {{ dev.assigneeId.slice(0, 8) }}</div>
-            <div class="dev-stats text-muted text-small">
-              进行中 {{ dev.inProgress }} 个 · 已完成 {{ dev.completed }} 个
+      <el-empty v-if="developerGroups.length === 0" description="暂无已指派的需求" />
+
+      <el-card v-for="dev in developerGroups" :key="dev.assigneeId" shadow="never" style="margin-bottom:16px; padding:0;">
+        <template #header>
+          <div style="display:flex; align-items:center; gap:14px;">
+            <div class="dev-avatar">{{ dev.assigneeId.slice(0, 2).toUpperCase() }}</div>
+            <div style="flex:1;">
+              <div style="font-weight:600; font-size:14px;">开发者 {{ dev.assigneeId.slice(0, 8) }}</div>
+              <el-text type="info" class="text-small">进行中 {{ dev.inProgress }} 个 · 已完成 {{ dev.completed }} 个</el-text>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px; width:180px;">
+              <el-progress :percentage="dev.progressPct" :stroke-width="6" />
+              <span style="font-weight:600; color:#6366f1; min-width:36px;">{{ dev.progressPct }}%</span>
             </div>
           </div>
-          <div class="dev-progress">
-            <div class="progress-bar">
-              <div class="progress-fill" :style="{ width: dev.progressPct + '%' }"></div>
-            </div>
-            <span class="progress-pct">{{ dev.progressPct }}%</span>
-          </div>
-        </div>
+        </template>
 
         <div class="req-list">
           <div v-for="req in dev.requirements" :key="req.id" class="req-row">
             <div class="req-row-left">
               <span :class="['req-status-dot', req.status]"></span>
-              <router-link :to="`/requirement/${req.id}`" class="req-title link">
+              <el-link type="primary" underline="never" @click="$router.push(`/requirement/${req.id}`)">
                 {{ req.title }}
-              </router-link>
+              </el-link>
             </div>
             <div class="req-row-right">
-              <span :class="['priority-badge', req.priority]">{{ req.priority }}</span>
-              <span :class="['status-badge', req.status]">{{ statusText(req.status) }}</span>
-              <span class="text-muted text-small">{{ getIterationName(req.iteration_id) }}</span>
+              <el-tag :type="priorityType(req.priority)" size="small" effect="plain">{{ req.priority }}</el-tag>
+              <el-tag :type="statusType(req.status)" size="small">{{ statusText(req.status) }}</el-tag>
+              <el-text type="info" class="text-small">{{ getIterationName(req.iteration_id) }}</el-text>
             </div>
           </div>
         </div>
-      </div>
+      </el-card>
     </div>
   </div>
 </template>
@@ -155,7 +184,7 @@ const filteredReqs = computed(() =>
 
 const overview = computed(() => ({
   total: filteredReqs.value.length,
-  inProgress: filteredReqs.value.filter(r => ['in_progress', 'pending_review', 'claimed'].includes(r.status)).length,
+  inProgress: filteredReqs.value.filter(r => ['in_progress', 'pending_review'].includes(r.status)).length,
   completed: filteredReqs.value.filter(r => r.status === 'completed').length,
   unassigned: filteredReqs.value.filter(r => !r.assignee_id && r.status !== 'completed').length,
 }))
@@ -182,10 +211,7 @@ const daysOverdue = (due: string) => {
   return Math.floor((today.value.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24))
 }
 
-const formatDate = (d: string) => {
-  if (!d) return '-'
-  return new Date(d).toISOString().slice(0, 10)
-}
+const formatDate = (d: string) => d ? new Date(d).toISOString().slice(0, 10) : '-'
 
 const developerGroups = computed(() => {
   const assigned = filteredReqs.value.filter(r => r.assignee_id)
@@ -196,7 +222,7 @@ const developerGroups = computed(() => {
   }
   return Object.entries(groups).map(([assigneeId, reqs]) => {
     const completed = reqs.filter(r => r.status === 'completed').length
-    const inProgress = reqs.filter(r => ['in_progress', 'pending_review', 'claimed'].includes(r.status)).length
+    const inProgress = reqs.filter(r => ['in_progress', 'pending_review'].includes(r.status)).length
     return {
       assigneeId,
       requirements: reqs,
@@ -207,9 +233,14 @@ const developerGroups = computed(() => {
   })
 })
 
+const statusType = (s: string) => ({
+  draft: 'info', assigned: 'primary', in_progress: 'primary',
+  pending_review: 'warning', review_approved: 'success', review_rejected: 'danger', completed: 'success',
+}[s] || 'info')
+const priorityType = (p: string) => ({ P0: 'danger', P1: 'warning', P2: 'info', P3: 'info' }[p] || 'info')
+
 const statusText = (s: string) => ({
-  draft: '草稿', pending_analysis: '待分析', analyzed: '已分析',
-  assigned: '已指派', claimed: '已领取', in_progress: '开发中',
+  draft: '草稿', assigned: '已指派', in_progress: '开发中',
   pending_review: '待评审', review_approved: '评审通过',
   review_rejected: '评审驳回', completed: '已完成',
 }[s] || s)
@@ -220,8 +251,8 @@ const fetchData = async () => {
   loading.value = true
   try {
     const [reqRes, iterRes] = await Promise.all([requirementsApi.list(), iterationsApi.list()])
-    requirements.value = reqRes.data
-    iterations.value = iterRes.data
+    requirements.value = reqRes.data.items
+    iterations.value = iterRes.data.items
   } catch (e) { console.error(e) }
   finally { loading.value = false }
 }
@@ -230,38 +261,32 @@ onMounted(fetchData)
 </script>
 
 <style scoped>
-.dev-card { padding: 0; overflow: hidden; }
-
-.dev-card-header {
-  display: flex; align-items: center; gap: 14px;
-  padding: 16px 20px; border-bottom: 1px solid #f0f1f5;
-  background: #fafafa;
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
 }
-
+.page-title { font-size: 20px; font-weight: 700; color: #1f2329; margin: 0; }
+.page-subtitle { font-size: 13px; color: #969ba4; margin: 4px 0 0 0; }
+.stat-value { font-size: 22px; font-weight: 700; color: #1f2329; line-height: 1; }
+.stat-label { font-size: 12px; color: #969ba4; margin-top: 3px; }
+.stat-icon {
+  width: 40px; height: 40px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; flex-shrink: 0;
+}
+.stat-icon.indigo { background: rgba(99, 102, 241, 0.1); }
+.stat-icon.amber { background: rgba(255, 154, 46, 0.1); }
+.stat-icon.green { background: rgba(0, 168, 112, 0.1); }
+.stat-icon.purple { background: rgba(139, 92, 246, 0.1); }
 .dev-avatar {
   width: 36px; height: 36px; border-radius: 50%;
   background: linear-gradient(135deg, #6366f1, #8b5cf6);
   color: white; font-size: 12px; font-weight: 700;
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
-
-.dev-info { flex: 1; min-width: 0; }
-.dev-name { font-size: 14px; font-weight: 600; color: #111827; }
-.dev-stats { margin-top: 2px; }
-
-.dev-progress { display: flex; align-items: center; gap: 10px; }
-.progress-bar {
-  width: 120px; height: 6px; background: #f0f1f5;
-  border-radius: 3px; overflow: hidden;
-}
-.progress-fill {
-  height: 100%; background: linear-gradient(90deg, #6366f1, #8b5cf6);
-  border-radius: 3px; transition: width 0.3s;
-}
-.progress-pct { font-size: 13px; font-weight: 600; color: #6366f1; min-width: 36px; }
-
 .req-list { padding: 8px 0; }
-
 .req-row {
   display: flex; align-items: center; justify-content: space-between;
   padding: 10px 20px; gap: 12px;
@@ -269,10 +294,8 @@ onMounted(fetchData)
 }
 .req-row:last-child { border-bottom: none; }
 .req-row:hover { background: #f9fafb; }
-
 .req-row-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .req-row-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-
 .req-status-dot {
   width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
   background: #d1d5db;
@@ -280,14 +303,4 @@ onMounted(fetchData)
 .req-status-dot.in_progress { background: #f59e0b; }
 .req-status-dot.pending_review { background: #ec4899; }
 .req-status-dot.completed { background: #10b981; }
-.req-status-dot.claimed { background: #6366f1; }
-
-.req-title { font-size: 13.5px; font-weight: 500; }
-
-.overdue-tag {
-  display: inline-block;
-  background: #fee2e2; color: #b91c1c;
-  font-size: 12px; font-weight: 600;
-  padding: 2px 8px; border-radius: 10px;
-}
 </style>

@@ -7,121 +7,111 @@
       </div>
     </div>
 
-    <!-- Connection info card -->
-    <div class="card ai-card mb-16">
-      <div class="ai-card-header">
-        <div class="ai-card-icon">⬡</div>
-        <div>
-          <div class="ai-card-title">MCP 服务端点</div>
-          <div class="ai-card-subtitle">将以下配置添加到开发者的 Claude Code 配置文件中</div>
+    <el-card shadow="never" class="ai-card" style="margin-bottom:16px;">
+      <template #header>
+        <div style="display:flex; align-items:flex-start; gap:14px;">
+          <div style="font-size:28px; color:#8b5cf6;">⬡</div>
+          <div style="flex:1;">
+            <div style="font-weight:600; color:#f9fafb;">MCP 服务端点</div>
+            <div style="font-size:13px; color:#9ca3af; margin-top:3px;">将以下配置添加到开发者的 Claude Code 配置文件中</div>
+          </div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span style="width:8px; height:8px; border-radius:50%; background:#22c55e; box-shadow:0 0 6px rgba(34,197,94,0.5);"></span>
+            <span style="font-size:12px; color:#9ca3af;">服务运行中</span>
+          </div>
         </div>
-        <div class="connection-status">
-          <span class="status-dot active"></span>
-          <span class="status-text">服务运行中</span>
-        </div>
-      </div>
-      <div class="code-block">
-        <div class="code-header">
+      </template>
+      <div style="border-radius:8px; overflow:hidden; border:1px solid rgba(255,255,255,0.08);">
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 14px; background:rgba(255,255,255,0.05); font-size:12px; color:#9ca3af; font-family:monospace;">
           <span>~/.claude/claude.json</span>
-          <button class="btn btn-sm btn-ghost" @click="copyConfig">
-            {{ copied ? '✓ 已复制' : '复制' }}
-          </button>
+          <el-button size="small" text @click="copyConfig">{{ copied ? '✓ 已复制' : '复制' }}</el-button>
         </div>
-        <pre class="code-content">{{ mcpConfig }}</pre>
+        <pre style="margin:0; padding:16px; background:rgba(0,0,0,0.3); font-size:13px; line-height:1.6; color:#a5b4fc; font-family:monospace; overflow-x:auto; white-space:pre;">{{ mcpConfig }}</pre>
       </div>
-    </div>
+    </el-card>
 
-    <!-- Endpoints overview -->
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
-      <div class="card">
-        <div class="card-title">MCP Tools</div>
-        <div class="endpoint-list">
-          <div v-for="tool in mcpTools" :key="tool.name" class="endpoint-item">
-            <div class="endpoint-badge">tool</div>
-            <div class="endpoint-info">
-              <div class="endpoint-name">{{ tool.name }}</div>
-              <div class="endpoint-desc text-muted text-small">{{ tool.desc }}</div>
+    <el-row :gutter="16" style="margin-bottom:16px;">
+      <el-col :span="12">
+        <el-card shadow="never">
+          <template #header>
+            <div style="font-weight:600;">MCP Tools</div>
+          </template>
+          <div v-for="tool in mcpTools" :key="tool.name" style="display:flex; gap:10px; margin-bottom:10px;">
+            <span style="font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px; background:rgba(139,92,246,0.1); color:#8b5cf6; border:1px solid rgba(139,92,246,0.2); flex-shrink:0; margin-top:1px; letter-spacing:0.04em;">tool</span>
+            <div>
+              <div style="font-size:13px; font-weight:600; color:#111827; font-family:monospace;">{{ tool.name }}</div>
+              <div style="font-size:12px; color:#6b7280; margin-top:2px;">{{ tool.desc }}</div>
             </div>
           </div>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-title">开发者接入流程</div>
-        <div class="flow-steps">
-          <div v-for="(step, i) in devSteps" :key="i" class="flow-step">
-            <div class="flow-step-num">{{ i + 1 }}</div>
-            <div class="flow-step-content">
-              <div class="flow-step-title">{{ step.title }}</div>
-              <div class="flow-step-desc text-muted text-small">{{ step.desc }}</div>
+        </el-card>
+      </el-col>
+      <el-col :span="12">
+        <el-card shadow="never">
+          <template #header>
+            <div style="font-weight:600;">开发者接入流程</div>
+          </template>
+          <div v-for="(step, i) in devSteps" :key="i" style="display:flex; gap:12px; margin-bottom:14px;">
+            <div style="width:24px; height:24px; border-radius:50%; background:linear-gradient(135deg, #6366f1, #8b5cf6); color:white; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0;">{{ i + 1 }}</div>
+            <div>
+              <div style="font-size:13.5px; font-weight:600; color:#111827;">{{ step.title }}</div>
+              <div style="font-size:12px; color:#6b7280; margin-top:2px;">{{ step.desc }}</div>
             </div>
           </div>
+        </el-card>
+      </el-col>
+    </el-row>
+
+    <el-card shadow="never" style="margin-bottom:16px;">
+      <template #header>
+        <div style="display:flex; align-items:center; justify-content:space-between;">
+          <div style="font-weight:600;">Access Token 管理</div>
+          <el-button size="small" @click="showCreateModal = true">+ 申请新 Token</el-button>
         </div>
-      </div>
-    </div>
-
-    <!-- Access Token 管理 -->
-    <div class="card mt-16">
-      <div class="card-header-row">
-        <div class="card-title">Access Token 管理</div>
-        <button class="btn btn-secondary btn-sm" @click="showCreateModal = true">+ 申请新 Token</button>
-      </div>
-
-      <div v-if="tokens.length === 0" class="empty-tip text-muted text-small">暂无 Token，点击「申请新 Token」创建</div>
-      <div v-else class="token-list">
-        <div v-for="t in tokens" :key="t.id" class="token-item">
-          <div class="token-item-info">
-            <div class="token-name">{{ t.name }}</div>
-            <code class="token-prefix">{{ t.prefix }}…</code>
-            <span v-if="t.expires_at" class="text-muted text-small">过期: {{ t.expires_at.slice(0, 10) }}</span>
-            <span v-else class="text-muted text-small">永不过期</span>
-          </div>
-          <button class="btn btn-sm btn-ghost danger" @click="handleRevoke(t.id)">撤销</button>
+      </template>
+      <el-empty v-if="tokens.length === 0" description="暂无 Token，点击「申请新 Token」创建" />
+      <div v-else v-for="t in tokens" :key="t.id" style="display:flex; align-items:center; justify-content:space-between; padding:10px 12px; border-radius:8px; border:1px solid #e5e7eb; margin-bottom:10px;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <span style="font-size:13.5px; font-weight:600; color:#111827;">{{ t.name }}</span>
+          <code style="font-size:12px; color:#6366f1; background:#f5f3ff; padding:2px 6px; border-radius:4px;">{{ t.prefix }}…</code>
+          <el-text type="info" size="small">{{ t.expires_at ? '过期: ' + t.expires_at.slice(0, 10) : '永不过期' }}</el-text>
         </div>
+        <el-button size="small" text type="danger" @click="handleRevoke(t.id)">撤销</el-button>
       </div>
-    </div>
+    </el-card>
 
-    <!-- 创建 Token Modal -->
-    <div v-if="showCreateModal" class="modal-overlay" @click.self="showCreateModal = false">
-      <div class="modal">
-        <div class="modal-title">申请新 Access Token</div>
-        <div v-if="newlyCreatedToken" class="token-reveal">
-          <div class="text-small text-muted mb-8">Token 已创建，请立即复制保存，此后不再显示：</div>
-          <code class="token-reveal-value">{{ newlyCreatedToken }}</code>
-          <button class="btn btn-sm btn-secondary mt-8" @click="copyNewToken">
-            {{ tokenCopied ? '✓ 已复制' : '复制' }}
-          </button>
-        </div>
-        <template v-else>
-          <input v-model="newTokenName" class="form-input" placeholder="Token 名称，如 CI / 本地开发" />
-          <div class="modal-actions">
-            <button class="btn btn-ghost" @click="showCreateModal = false">取消</button>
-            <button class="btn btn-primary" :disabled="!newTokenName" @click="handleCreate">创建</button>
-          </div>
-        </template>
-        <button v-if="newlyCreatedToken" class="btn btn-ghost mt-8" @click="closeCreateModal">关闭</button>
+    <el-card shadow="never">
+      <template #header>
+        <div style="font-weight:600;">REST API 端点</div>
+      </template>
+      <el-table :data="apiEndpoints" stripe size="small">
+        <el-table-column prop="method" label="方法" width="80">
+          <template #default="{ row }">
+            <el-tag :type="methodType(row.method)" size="small">{{ row.method }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="path" label="路径" min-width="300">
+          <template #default="{ row }">
+            <code style="font-family:monospace; font-size:13px; color:#4f46e5; background:#f5f3ff; padding:2px 6px; border-radius:4px;">{{ row.path }}</code>
+          </template>
+        </el-table-column>
+        <el-table-column prop="desc" label="说明" />
+      </el-table>
+    </el-card>
+
+    <el-dialog v-model="showCreateModal" title="申请新 Access Token" width="400px">
+      <div v-if="newlyCreatedToken">
+        <el-alert type="warning" :closable="false" style="margin-bottom:12px;">Token 已创建，请立即复制保存，此后不再显示</el-alert>
+        <code style="display:block; font-size:13px; word-break:break-all; background:#f9fafb; border:1px solid #e5e7eb; border-radius:6px; padding:10px; color:#374151;">{{ newlyCreatedToken }}</code>
+        <el-button size="small" style="margin-top:8px;" @click="copyNewToken">{{ tokenCopied ? '✓ 已复制' : '复制' }}</el-button>
       </div>
-    </div>
-
-    <!-- API endpoints -->
-    <div class="card">
-      <div class="card-title">REST API 端点</div>
-      <table class="table">
-        <thead>
-          <tr>
-            <th>方法</th>
-            <th>路径</th>
-            <th>说明</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="ep in apiEndpoints" :key="ep.path">
-            <td><span :class="['method-badge', ep.method.toLowerCase()]">{{ ep.method }}</span></td>
-            <td><code class="endpoint-code">{{ ep.path }}</code></td>
-            <td class="text-muted text-medium">{{ ep.desc }}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+      <template v-else>
+        <el-input v-model="newTokenName" placeholder="Token 名称，如 CI / 本地开发" />
+      </template>
+      <template #footer>
+        <el-button @click="closeCreateModal">关闭</el-button>
+        <el-button v-if="!newlyCreatedToken" type="primary" :disabled="!newTokenName" @click="handleCreate">创建</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -129,6 +119,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useTokenManager } from '@/composables/useTokenManager'
 import { useAuthStore } from '@/stores/auth'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 const copied = ref(false)
 const tokenCopied = ref(false)
@@ -141,18 +132,21 @@ const newlyCreatedToken = ref<string | null>(null)
 
 onMounted(fetchTokens)
 
-async function handleCreate() {
+const handleCreate = async () => {
   const result = await createToken({ name: newTokenName.value, user_id: currentUserId.value })
   newlyCreatedToken.value = result.token
   newTokenName.value = ''
 }
 
-async function handleRevoke(id: string) {
-  if (!confirm('确认撤销此 Token？')) return
-  await revokeToken(id)
+const handleRevoke = async (id: string) => {
+  try {
+    await ElMessageBox.confirm('确认撤销此 Token？', '提示', { type: 'warning' })
+    await revokeToken(id)
+    ElMessage.success('撤销成功')
+  } catch (e) { if (e !== 'cancel') console.error(e) }
 }
 
-async function copyNewToken() {
+const copyNewToken = async () => {
   if (newlyCreatedToken.value) {
     await navigator.clipboard.writeText(newlyCreatedToken.value)
     tokenCopied.value = true
@@ -160,7 +154,7 @@ async function copyNewToken() {
   }
 }
 
-function closeCreateModal() {
+const closeCreateModal = () => {
   showCreateModal.value = false
   newlyCreatedToken.value = null
 }
@@ -184,6 +178,8 @@ const copyConfig = async () => {
   setTimeout(() => { copied.value = false }, 2000)
 }
 
+const methodType = (m: string) => ({ GET: 'success', POST: 'primary', PUT: 'warning', DELETE: 'danger' }[m] || 'info')
+
 const mcpTools = [
   { name: 'list_assigned_requirements', desc: '获取指派给当前开发的需求列表' },
   { name: 'get_requirement_detail', desc: '获取需求详情、任务、测试记录' },
@@ -203,99 +199,18 @@ const devSteps = [
 ]
 
 const apiEndpoints = [
-  { method: 'GET',  path: '/api/mcp/requirements',        desc: '获取进行中的需求' },
-  { method: 'GET',  path: '/api/mcp/requirements/:id',    desc: '获取需求详情和任务' },
-  { method: 'POST', path: '/api/mcp/sync-tasks',          desc: '同步任务列表' },
-  { method: 'POST', path: '/api/mcp/update-task',         desc: '更新任务状态' },
-  { method: 'POST', path: '/api/mcp/submit-test-result',  desc: '提交测试结果' },
+  { method: 'GET', path: '/api/mcp/requirements', desc: '获取进行中的需求' },
+  { method: 'GET', path: '/api/mcp/requirements/:id', desc: '获取需求详情和任务' },
+  { method: 'POST', path: '/api/mcp/sync-tasks', desc: '同步任务列表' },
+  { method: 'POST', path: '/api/mcp/update-task', desc: '更新任务状态' },
+  { method: 'POST', path: '/api/mcp/submit-test-result', desc: '提交测试结果' },
   { method: 'POST', path: '/api/requirements/:id/transition', desc: '需求状态流转' },
 ]
 </script>
 
 <style scoped>
-.ai-card {
-  background: linear-gradient(135deg, #0f0f17 0%, #1a1a2e 100%);
-  border-color: rgba(99,102,241,0.3);
-  color: #e5e7eb;
-}
-.ai-card-header {
-  display: flex; align-items: flex-start; gap: 14px; margin-bottom: 20px;
-}
-.ai-card-icon {
-  font-size: 28px; color: #8b5cf6; flex-shrink: 0; line-height: 1;
-}
-.ai-card-title { font-size: 15px; font-weight: 600; color: #f9fafb; }
-.ai-card-subtitle { font-size: 13px; color: #9ca3af; margin-top: 3px; }
-.connection-status {
-  margin-left: auto; display: flex; align-items: center; gap: 6px;
-}
-.status-dot {
-  width: 8px; height: 8px; border-radius: 50%; background: #6b7280;
-}
-.status-dot.active { background: #22c55e; box-shadow: 0 0 6px rgba(34,197,94,0.5); }
-.status-text { font-size: 12px; color: #9ca3af; }
-.code-block { border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.08); }
-.code-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 8px 14px; background: rgba(255,255,255,0.05);
-  font-size: 12px; color: #9ca3af; font-family: monospace;
-}
-.code-content {
-  margin: 0; padding: 16px; background: rgba(0,0,0,0.3);
-  font-size: 13px; line-height: 1.6; color: #a5b4fc; font-family: monospace;
-  overflow-x: auto; white-space: pre;
-}
-
-.endpoint-list { display: flex; flex-direction: column; gap: 10px; }
-.endpoint-item { display: flex; align-items: flex-start; gap: 10px; }
-.endpoint-badge {
-  font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px;
-  background: rgba(139,92,246,0.1); color: #8b5cf6; border: 1px solid rgba(139,92,246,0.2);
-  flex-shrink: 0; margin-top: 1px; letter-spacing: 0.04em;
-}
-.endpoint-name { font-size: 13px; font-weight: 600; color: #111827; font-family: monospace; }
-.endpoint-desc { margin-top: 2px; }
-
-.flow-steps { display: flex; flex-direction: column; gap: 14px; }
-.flow-step { display: flex; gap: 12px; }
-.flow-step-num {
-  width: 24px; height: 24px; border-radius: 50%;
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
-  color: white; font-size: 12px; font-weight: 700;
-  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-}
-.flow-step-title { font-size: 13.5px; font-weight: 600; color: #111827; }
-.flow-step-desc { margin-top: 2px; }
-
-.method-badge {
-  font-size: 11px; font-weight: 700; padding: 2px 7px;
-  border-radius: 4px; letter-spacing: 0.04em;
-}
-.method-badge.get  { background: #d1fae5; color: #065f46; }
-.method-badge.post { background: #dbeafe; color: #1e40af; }
-.method-badge.put  { background: #fef9c3; color: #a16207; }
-.method-badge.delete { background: #fee2e2; color: #991b1b; }
-
-.mt-16 { margin-top: 16px; }
-.mt-8 { margin-top: 8px; }
-.mb-8 { margin-bottom: 8px; }
-.card-header-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
-.token-list { display: flex; flex-direction: column; gap: 10px; }
-.token-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: 8px; border: 1px solid #e5e7eb; }
-.token-item-info { display: flex; align-items: center; gap: 12px; }
-.token-name { font-size: 13.5px; font-weight: 600; color: #111827; }
-.token-prefix { font-size: 12px; color: #6366f1; background: #f5f3ff; padding: 2px 6px; border-radius: 4px; }
-.empty-tip { padding: 16px 0; }
-.danger { color: #dc2626; }
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 100; }
-.modal { background: #fff; border-radius: 12px; padding: 24px; min-width: 360px; display: flex; flex-direction: column; gap: 12px; }
-.modal-title { font-size: 15px; font-weight: 700; color: #111827; }
-.modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
-.token-reveal { display: flex; flex-direction: column; }
-.token-reveal-value { font-size: 13px; font-family: monospace; word-break: break-all; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 10px; color: #374151; }
-
-.endpoint-code {
-  font-family: monospace; font-size: 13px; color: #4f46e5;
-  background: #f5f3ff; padding: 2px 6px; border-radius: 4px;
-}
+.page-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; }
+.page-title { font-size:20px; font-weight:700; color:#1f2329; margin:0; }
+.page-subtitle { font-size:13px; color:#969ba4; margin:4px 0 0 0; }
+.ai-card { background:linear-gradient(135deg, #0f0f17 0%, #1a1a2e 100%); border-color:rgba(99,102,241,0.3); }
 </style>

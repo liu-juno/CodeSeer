@@ -1,21 +1,35 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from typing import List
 from uuid import UUID
 
 from app.core.database import get_db
 from app.models.models import Project, Iteration, Requirement
-from app.schemas.schemas import ProjectCreate, ProjectUpdate, ProjectResponse
+from app.schemas.schemas import ProjectCreate, ProjectUpdate, ProjectResponse, PaginatedResponse
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
 
-@router.get("", response_model=List[ProjectResponse])
-async def list_projects(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Project).order_by(Project.created_at.desc()))
-    projects = result.scalars().all()
-    return projects
+@router.get("", response_model=PaginatedResponse[ProjectResponse])
+async def list_projects(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+):
+    count_result = await db.execute(select(func.count()).select_from(Project))
+    total = count_result.scalar() or 0
+
+    offset = (page - 1) * page_size
+    result = await db.execute(
+        select(Project)
+        .order_by(Project.created_at.desc())
+        .offset(offset)
+        .limit(page_size)
+    )
+    items = result.scalars().all()
+
+    return PaginatedResponse(items=items, total=total, page=page, page_size=page_size)
 
 
 @router.post("", response_model=ProjectResponse)
@@ -76,12 +90,12 @@ async def delete_project(project_id: UUID, db: AsyncSession = Depends(get_db)):
 
 @router.get("/by-assignee/{assignee_id}", response_model=List[ProjectResponse])
 async def list_projects_by_assignee(assignee_id: UUID, db: AsyncSession = Depends(get_db)):
-    """列出指派给某用户的、状态为 assigned/claimed/in_progress 的需求所在的项目。"""
+    """列出指派给某用户的、状态为 assigned/in_progress 的需求所在的项目。"""
     req_result = await db.execute(
         select(Requirement.project_id)
         .where(
             Requirement.assignee_id == str(assignee_id),
-            Requirement.status.in_(["assigned", "claimed", "in_progress"]),
+            Requirement.status.in_(["assigned", "in_progress"]),
         )
         .distinct()
     )

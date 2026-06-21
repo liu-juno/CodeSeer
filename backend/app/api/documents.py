@@ -112,8 +112,35 @@ async def archive_document(document_id: str, db: AsyncSession = Depends(get_db))
     doc = result.scalar_one_or_none()
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
+
+    # auto-extract summary if missing
+    if not doc.summary and doc.content:
+        content = doc.content
+        doc.summary = content[:200] + ("..." if len(content) > 200 else "")
+        key_points = []
+        for line in content.split("\n"):
+            line = line.strip()
+            if line.startswith(("- ", "* ", "• ")) or (line and len(line) < 80 and line[0].isdigit() and "." in line[:3]):
+                key_points.append(line.lstrip("-*•0123456789. "))
+        doc.key_points = "\n".join(key_points[:10])
+        doc.processing_status = "completed"
+
     doc.status = "archived"
     doc.archived_at = datetime.utcnow()
+
+    # deprecate older archived docs of same type+module (version superseding)
+    if doc.module_id and doc.document_type:
+        old_result = await db.execute(
+            select(Document).where(
+                Document.id != doc.id,
+                Document.module_id == doc.module_id,
+                Document.document_type == doc.document_type,
+                Document.status == "archived",
+            )
+        )
+        for old_doc in old_result.scalars().all():
+            old_doc.status = "deprecated"
+
     await db.commit()
     await db.refresh(doc)
 

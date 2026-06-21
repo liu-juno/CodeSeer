@@ -1,148 +1,126 @@
 <template>
   <div class="iterations-page">
-    <!-- Page Header Toolbar -->
     <div class="page-header">
       <div class="header-left">
         <h1 class="page-title">迭代管理</h1>
-        <span class="text-muted text-medium" style="margin-left:12px;">{{ iterations.length }} 个迭代</span>
+        <el-text class="text-muted" style="margin-left:12px;">{{ total }} 个迭代</el-text>
       </div>
       <div class="header-right">
-        <div class="search-box">
-          <span class="search-icon">⌕</span>
-          <input v-model="search" type="text" class="form-input" placeholder="搜索迭代..." style="width:200px; padding-left:32px;" />
-        </div>
-        <select v-model="statusFilter" class="form-input" style="width:120px">
-          <option value="">全部状态</option>
-          <option value="planning">规划中</option>
-          <option value="development">开发中</option>
-          <option value="testing">测试中</option>
-          <option value="released">已发布</option>
-          <option value="archived">已归档</option>
-        </select>
-        <button class="btn btn-primary" @click="showCreateModal = true">
-          <span>＋</span> 创建迭代
-        </button>
+        <el-input v-model="search" placeholder="搜索迭代..." style="width:200px;" clearable @input="onSearch" />
+        <el-select v-model="statusFilter" placeholder="全部状态" style="width:120px" clearable @change="onFilterChange">
+          <el-option value="planning" label="规划中" />
+          <el-option value="development" label="开发中" />
+          <el-option value="testing" label="测试中" />
+          <el-option value="released" label="已发布" />
+          <el-option value="archived" label="已归档" />
+        </el-select>
+        <el-button type="primary" @click="showCreateModal = true">
+          <el-icon><Plus /></el-icon> 创建迭代
+        </el-button>
       </div>
     </div>
 
-    <!-- Batch Actions Bar -->
-    <div v-if="selected.length > 0" class="batch-bar">
-      <span class="text-medium">已选择 <strong>{{ selected.length }}</strong> 项</span>
-      <button class="btn btn-ghost btn-sm" @click="selected = []">清除</button>
-      <button class="btn btn-ghost btn-sm" style="color:#ef4444;" @click="batchDelete">删除</button>
-    </div>
+    <el-table :data="filteredIterations" stripe style="width:100%">
+      <el-table-column type="selection" width="40" />
+      <el-table-column prop="name" label="迭代名称" min-width="200">
+        <template #default="{ row }">
+          <el-link type="primary" underline="never" @click="$router.push(`/iteration/${row.id}`)">
+            {{ row.name }}
+          </el-link>
+        </template>
+      </el-table-column>
+      <el-table-column prop="project_id" label="所属项目" width="180">
+        <template #default="{ row }">
+          <el-text class="text-muted">{{ getProjectName(row.project_id) }}</el-text>
+        </template>
+      </el-table-column>
+      <el-table-column prop="status" label="状态" width="100">
+        <template #default="{ row }">
+          <el-tag :type="statusType(row.status)" size="small">{{ statusText(row.status) }}</el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column prop="planned_release_date" label="计划发布日期" width="140">
+        <template #default="{ row }">
+          <el-text class="text-muted">{{ row.planned_release_date ? formatDate(row.planned_release_date) : '—' }}</el-text>
+        </template>
+      </el-table-column>
+      <el-table-column prop="created_at" label="创建时间" width="120">
+        <template #default="{ row }">
+          <el-text class="text-muted text-small">{{ formatDate(row.created_at) }}</el-text>
+        </template>
+      </el-table-column>
+      <el-table-column label="操作" width="140" align="right">
+        <template #default="{ row }">
+          <el-button size="small" text type="primary" @click="$router.push(`/iteration/${row.id}`)">查看</el-button>
+          <el-button size="small" text type="danger" @click="deleteIteration(row.id)">删除</el-button>
+        </template>
+      </el-table-column>
+    </el-table>
 
-    <!-- Table -->
-    <div class="card" style="padding:0; overflow:hidden;">
-      <div v-if="loading" class="empty-state">
-        <div class="empty-state-text text-muted">加载中...</div>
-      </div>
-      <table v-else class="table">
-        <thead>
-          <tr>
-            <th style="width:40px;">
-              <input type="checkbox" @change="toggleSelectAll" :checked="isAllSelected" />
-            </th>
-            <th>迭代名称</th>
-            <th>所属项目</th>
-            <th>状态</th>
-            <th>计划发布日期</th>
-            <th>创建时间</th>
-            <th style="width:100px; text-align:right;">操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="iter in filteredIterations" :key="iter.id" :class="{ 'row-selected': selected.includes(iter.id) }">
-            <td>
-              <input type="checkbox" :value="iter.id" v-model="selected" />
-            </td>
-            <td>
-              <router-link :to="`/iteration/${iter.id}`" class="link" style="font-weight:600;">
-                {{ iter.name }}
-              </router-link>
-            </td>
-            <td class="text-muted text-medium">{{ getProjectName(iter.project_id) }}</td>
-            <td>
-              <span :class="['status-badge', iter.status]">{{ statusText(iter.status) }}</span>
-            </td>
-            <td class="text-muted text-medium">{{ iter.planned_release_date ? formatDate(iter.planned_release_date) : '—' }}</td>
-            <td class="text-muted text-small">{{ formatDate(iter.created_at) }}</td>
-            <td style="text-align:right;">
-              <div class="action-btns">
-                <router-link :to="`/iteration/${iter.id}`" class="btn btn-ghost btn-sm">查看</router-link>
-                <button class="btn btn-ghost btn-sm" @click="deleteIteration(iter.id)" style="color:#ef4444;">删除</button>
-              </div>
-            </td>
-          </tr>
-          <tr v-if="filteredIterations.length === 0">
-            <td colspan="7">
-              <div class="empty-state">
-                <div class="empty-state-icon">↻</div>
-                <div class="empty-state-text">暂无迭代，点击「创建迭代」开始</div>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <el-pagination
+      background
+      layout="total, sizes, prev, pager, next, jumper"
+      :total="total"
+      :page-size="pageSize"
+      :current-page="page"
+      @size-change="onSizeChange"
+      @current-change="onPageChange"
+      style="margin-top: 20px; justify-content: flex-end;"
+    />
 
-    <!-- Create Modal -->
-    <div v-if="showCreateModal" class="modal-overlay" @click.self="showCreateModal = false">
-      <div class="modal">
-        <div class="modal-header">
-          <h3>创建迭代</h3>
-          <button class="modal-close" @click="showCreateModal = false">✕</button>
+    <el-dialog v-model="showCreateModal" title="创建迭代" width="520px">
+      <el-form :model="newIteration" label-position="top">
+        <el-form-item label="迭代名称" required>
+          <el-input v-model="newIteration.name" placeholder="如：v1.0.0 / Sprint-1" />
+        </el-form-item>
+        <el-form-item label="描述">
+          <el-input v-model="newIteration.description" type="textarea" placeholder="本次迭代目标..." />
+        </el-form-item>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+          <el-form-item label="所属项目" required>
+            <el-select v-model="newIteration.project_id" placeholder="选择项目" style="width:100%">
+              <el-option v-for="proj in projects" :key="proj.id" :label="proj.name" :value="proj.id" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="计划发布日期">
+            <el-date-picker v-model="newIteration.planned_release_date" type="date" placeholder="选择日期" style="width:100%" value-format="YYYY-MM-DD" />
+          </el-form-item>
         </div>
-        <div class="modal-body">
-          <div class="form-group">
-            <label class="form-label">迭代名称 <span class="required">*</span></label>
-            <input v-model="newIteration.name" type="text" class="form-input" placeholder="如：v1.0.0 / Sprint-1" />
-          </div>
-          <div class="form-group">
-            <label class="form-label">描述</label>
-            <textarea v-model="newIteration.description" class="form-input" placeholder="本次迭代目标..."></textarea>
-          </div>
-          <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
-            <div class="form-group" style="margin-bottom:0">
-              <label class="form-label">所属项目 <span class="required">*</span></label>
-              <select v-model="newIteration.project_id" class="form-input">
-                <option value="">选择项目</option>
-                <option v-for="proj in projects" :key="proj.id" :value="proj.id">{{ proj.name }}</option>
-              </select>
-            </div>
-            <div class="form-group" style="margin-bottom:0">
-              <label class="form-label">计划发布日期</label>
-              <input v-model="newIteration.planned_release_date" type="date" class="form-input" />
-            </div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-secondary" @click="showCreateModal = false">取消</button>
-          <button class="btn btn-primary" :disabled="!newIteration.name.trim() || !newIteration.project_id" @click="createIteration">
-            创建迭代
-          </button>
-        </div>
-      </div>
-    </div>
+      </el-form>
+      <template #footer>
+        <el-button @click="showCreateModal = false">取消</el-button>
+        <el-button type="primary" :disabled="!newIteration.name.trim() || !newIteration.project_id" @click="createIteration">创建</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { iterationsApi, projectsApi } from '@/api'
+import { usePagination } from '@/composables/usePagination'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Plus } from '@element-plus/icons-vue'
 
 const route = useRoute()
 
-const iterations = ref<any[]>([])
+const { items: iterations, total, page, pageSize, loading, fetchPage, onPageChange, onSizeChange } = usePagination(
+  async (p, ps) => {
+    const res = await iterationsApi.list(p, ps)
+    return { items: res.data.items, total: res.data.total }
+  }
+)
+
 const projects = ref<any[]>([])
-const loading = ref(false)
 const showCreateModal = ref(false)
-const selected = ref<string[]>([])
 const search = ref('')
 const statusFilter = ref('')
 
 const newIteration = ref({ name: '', description: '', project_id: '', planned_release_date: '' })
+
+const onSearch = () => fetchPage(1)
+const onFilterChange = () => fetchPage(1)
 
 const filteredIterations = computed(() => {
   let list = iterations.value
@@ -156,44 +134,31 @@ const filteredIterations = computed(() => {
   return list
 })
 
-const isAllSelected = computed(() => {
-  return filteredIterations.value.length > 0 && selected.value.length === filteredIterations.value.length
-})
+const statusType = (s: string) => ({
+  planning: 'info', development: 'primary', testing: 'warning',
+  released: 'success', archived: 'info'
+}[s] || 'info')
 
-const toggleSelectAll = (e: Event) => {
-  const checked = (e.target as HTMLInputElement).checked
-  selected.value = checked ? filteredIterations.value.map((i: any) => i.id) : []
-}
-
-const statusText = (status: string) => {
-  const map: Record<string, string> = {
-    planning: '规划中', development: '开发中', testing: '测试中',
-    released: '已发布', archived: '已归档',
-  }
-  return map[status] || status
-}
+const statusText = (status: string) => ({
+  planning: '规划中', development: '开发中', testing: '测试中',
+  released: '已发布', archived: '已归档',
+}[status] || status)
 
 const getProjectName = (projectId: string) => {
   const p = projects.value.find((p: any) => p.id === projectId)
-  return p?.name || '-'
+  return p?.name || '—'
 }
 
 const formatDate = (date: string) => new Date(date).toLocaleDateString('zh-CN')
 
 const fetchData = async () => {
-  loading.value = true
   try {
-    const [iterRes, projRes] = await Promise.all([iterationsApi.list(), projectsApi.list()])
-    iterations.value = iterRes.data
-    projects.value = projRes.data
-    if (route.params.id) {
-      iterations.value = iterations.value.filter((i: any) => i.project_id === route.params.id)
-    }
+    const projRes = await projectsApi.list()
+    projects.value = projRes.data.items
   } catch (e) {
     console.error(e)
-  } finally {
-    loading.value = false
   }
+  fetchPage(1)
 }
 
 const createIteration = async () => {
@@ -201,93 +166,33 @@ const createIteration = async () => {
     await iterationsApi.create(newIteration.value)
     showCreateModal.value = false
     newIteration.value = { name: '', description: '', project_id: '', planned_release_date: '' }
-    fetchData()
+    ElMessage.success('创建成功')
+    fetchPage(page.value)
   } catch (e) {
     console.error(e)
   }
 }
 
 const deleteIteration = async (id: string) => {
-  if (!confirm('确定删除此迭代？')) return
   try {
+    await ElMessageBox.confirm('确定删除此迭代？', '提示', { type: 'warning' })
     await iterationsApi.delete(id)
-    fetchData()
-  } catch (e) {
-    console.error(e)
-  }
-}
-
-const batchDelete = async () => {
-  if (!confirm(`确定删除 ${selected.value.length} 个迭代？`)) return
-  try {
-    await Promise.all(selected.value.map((id: string) => iterationsApi.delete(id)))
-    selected.value = []
-    fetchData()
-  } catch (e) {
-    console.error(e)
-  }
+    ElMessage.success('删除成功')
+    fetchPage(page.value)
+  } catch (e) { if (e !== 'cancel') console.error(e) }
 }
 
 onMounted(fetchData)
 </script>
 
 <style scoped>
+.iterations-page { max-width: 1200px; }
 .page-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 20px;
-  gap: 16px;
 }
-
-.header-left {
-  display: flex;
-  align-items: center;
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.search-box {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.search-icon {
-  position: absolute;
-  left: 10px;
-  color: var(--color-text-secondary);
-  font-size: 15px;
-  pointer-events: none;
-  z-index: 1;
-}
-
-.batch-bar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 16px;
-  background: var(--color-bg);
-  border: 1px solid var(--color-sidebar-border);
-  border-radius: 8px;
-  margin-bottom: 12px;
-}
-
-.action-btns {
-  display: flex;
-  gap: 4px;
-  justify-content: flex-end;
-}
-
-.row-selected {
-  background: rgba(45, 91, 255, 0.04) !important;
-}
-
-.table th {
-  background: var(--color-bg);
-}
+.header-left, .header-right { display: flex; align-items: center; gap: 12px; }
+.page-title { font-size: 20px; font-weight: 700; color: #1f2329; margin: 0; }
 </style>

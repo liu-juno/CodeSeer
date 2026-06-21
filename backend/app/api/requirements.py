@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from typing import List, Optional
 from uuid import UUID
 from datetime import datetime
@@ -16,16 +16,14 @@ from app.schemas.schemas import (
     RequirementResponse,
     RequirementAssign,
     StatusTransition,
+    PaginatedResponse,
 )
 
 router = APIRouter(prefix="/requirements", tags=["requirements"])
 
 DEFAULT_TRANSITIONS = {
-    "draft":           ["pending_analysis"],
-    "pending_analysis":["analyzed"],
-    "analyzed":        ["assigned"],
-    "assigned":        ["claimed", "analyzed"],
-    "claimed":         ["in_progress"],
+    "draft":           ["assigned"],
+    "assigned":        ["in_progress"],
     "in_progress":     ["pending_review"],
     "pending_review":  ["review_approved", "review_rejected"],
     "review_approved": ["completed"],
@@ -58,26 +56,41 @@ async def get_status_config(db: AsyncSession = Depends(get_db)):
     }
 
 
-@router.get("", response_model=List[RequirementResponse])
+@router.get("", response_model=PaginatedResponse[RequirementResponse])
 async def list_requirements(
     project_id: Optional[UUID] = Query(None),
     iteration_id: Optional[UUID] = Query(None),
     assignee_id: Optional[UUID] = Query(None),
     status: Optional[str] = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ):
     query = select(Requirement)
+    count_query = select(func.count()).select_from(Requirement)
+
     if project_id:
         query = query.where(Requirement.project_id == str(project_id))
+        count_query = count_query.where(Requirement.project_id == str(project_id))
     if iteration_id:
         query = query.where(Requirement.iteration_id == str(iteration_id))
+        count_query = count_query.where(Requirement.iteration_id == str(iteration_id))
     if assignee_id:
         query = query.where(Requirement.assignee_id == str(assignee_id))
+        count_query = count_query.where(Requirement.assignee_id == str(assignee_id))
     if status:
         query = query.where(Requirement.status == status)
-    query = query.order_by(Requirement.created_at.desc())
-    result = await db.execute(query)
-    return result.scalars().all()
+        count_query = count_query.where(Requirement.status == status)
+
+    total = (await db.execute(count_query)).scalar() or 0
+
+    offset = (page - 1) * page_size
+    result = await db.execute(
+        query.order_by(Requirement.created_at.desc()).offset(offset).limit(page_size)
+    )
+    items = result.scalars().all()
+
+    return PaginatedResponse(items=items, total=total, page=page, page_size=page_size)
 
 
 @router.post("", response_model=RequirementResponse)
@@ -242,6 +255,9 @@ class PhaseInit(BaseModel):
     actor: Optional[str] = None
 
 
+_PHASE_ORDER = ["clarification", "planning", "execution", "testing", "review"]
+
+
 @router.get("/{requirement_id}/phases")
 async def list_phases(requirement_id: UUID, db: AsyncSession = Depends(get_db)):
     """获取需求的 5 个开发阶段；如不存在则按需初始化。"""
@@ -252,24 +268,27 @@ async def list_phases(requirement_id: UUID, db: AsyncSession = Depends(get_db)):
     existing = (await db.execute(
         select(RequirementPhase)
         .where(RequirementPhase.requirement_id == str(requirement_id))
-        .order_by(RequirementPhase.created_at)
     )).scalars().all()
 
     if not existing:
-        # 首次访问：初始化 5 个阶段
         for p in PhaseType:
-            phase = RequirementPhase(
+            db.add(RequirementPhase(
                 requirement_id=str(requirement_id),
                 phase=p,
                 status=PhaseStatus.PENDING,
-            )
-            db.add(phase)
+            ))
         await db.commit()
         existing = (await db.execute(
             select(RequirementPhase)
             .where(RequirementPhase.requirement_id == str(requirement_id))
-            .order_by(RequirementPhase.created_at)
         )).scalars().all()
+
+    def _phase_key(p):
+        v = p.phase.value if hasattr(p.phase, 'value') else p.phase
+        try:
+            return _PHASE_ORDER.index(v)
+        except ValueError:
+            return 99
 
     return [{
         "id": p.id,
@@ -278,7 +297,7 @@ async def list_phases(requirement_id: UUID, db: AsyncSession = Depends(get_db)):
         "notes": p.notes,
         "started_at": p.started_at,
         "completed_at": p.completed_at,
-    } for p in existing]
+    } for p in sorted(existing, key=_phase_key)]
 
 
 @router.put("/{requirement_id}/phases/{phase_id}")

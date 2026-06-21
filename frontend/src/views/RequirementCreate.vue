@@ -211,7 +211,7 @@ onMounted(async () => {
       projectsApi.list(),
       iterationsApi.list(),
     ])
-    projects.value = projRes.data
+    projects.value = projRes.data.items
     iterations.value = iterRes.data.items
   } catch (e) {
     console.error(e)

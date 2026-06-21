@@ -34,7 +34,12 @@ export const authApi = {
 
 // Projects API
 export const projectsApi = {
-  list: () => api.get('/projects'),
+  list: (page?: number, pageSize?: number) => {
+    const params: any = {}
+    if (page !== undefined) params.page = page
+    if (pageSize !== undefined) params.page_size = pageSize
+    return api.get('/projects', { params })
+  },
   get: (id: string) => api.get(`/projects/${id}`),
   create: (data: any) => api.post('/projects', data),
   update: (id: string, data: any) => api.put(`/projects/${id}`, data),
@@ -44,7 +49,12 @@ export const projectsApi = {
 
 // Iterations API
 export const iterationsApi = {
-  list: () => api.get('/iterations'),
+  list: (page?: number, pageSize?: number) => {
+    const params: any = {}
+    if (page !== undefined) params.page = page
+    if (pageSize !== undefined) params.page_size = pageSize
+    return api.get('/iterations', { params })
+  },
   get: (id: string) => api.get(`/iterations/${id}`),
   create: (data: any) => api.post('/iterations', data),
   update: (id: string, data: any) => api.put(`/iterations/${id}`, data),
@@ -97,14 +107,15 @@ export const documentsApi = {
 
 // Modules API
 export const modulesApi = {
-  list: () => api.get('/modules'),
+  list: (params?: any) => api.get('/modules', { params }),
   get: (id: string) => api.get(`/modules/${id}`),
   create: (data: any) => api.post('/modules', data),
   update: (id: string, data: any) => api.put(`/modules/${id}`, data),
   delete: (id: string) => api.delete(`/modules/${id}`),
   documents: (id: string) => api.get(`/modules/${id}/documents`),
   knowledge: (id: string) => api.get(`/modules/${id}/knowledge`),
-  generateSkill: (id: string) => api.post(`/modules/${id}/generate-skill`),
+  generateSkill: (id: string, data: { name: string; description?: string; document_ids: string[] }) => api.post(`/modules/${id}/generate-skill`, data),
+  deleteSkill: (id: string) => api.delete(`/modules/${id}/skill`),
 }
 
 // Webhooks API
@@ -143,6 +154,25 @@ export const mcpTokensApi = {
   list: (userId: string) => api.get('/mcp/tokens', { params: { user_id: userId } }),
   create: (data: { name: string; user_id: string; days?: number }) => api.post('/mcp/tokens', data),
   delete: (id: string, userId: string) => api.delete(`/mcp/tokens/${id}`, { params: { user_id: userId } }),
+}
+
+// Attachments API
+export const attachmentsApi = {
+  upload: (requirementId: string, file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return api.post(`/requirements/${requirementId}/attachments`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
+  list: (requirementId: string) =>
+    api.get(`/requirements/${requirementId}/attachments`),
+  download: (requirementId: string, attachmentId: string) =>
+    api.get(`/requirements/${requirementId}/attachments/${attachmentId}/download`, {
+      responseType: 'blob',
+    }),
+  delete: (requirementId: string, attachmentId: string) =>
+    api.delete(`/requirements/${requirementId}/attachments/${attachmentId}`),
 }
 
 export default api

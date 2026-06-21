@@ -16,6 +16,7 @@ const router = createRouter({
         { path: 'project/:id', name: 'project-detail', component: () => import('@/views/ProjectDetail.vue') },
         { path: 'iteration/:id', name: 'iteration-detail', component: () => import('@/views/IterationDetail.vue') },
         { path: 'requirement/:id', name: 'requirement-detail', component: () => import('@/views/RequirementDetail.vue') },
+        { path: 'requirement/new', name: 'requirement-create', component: () => import('@/views/RequirementCreate.vue') },
         { path: 'dashboard', name: 'dashboard', component: () => import('@/views/Dashboard.vue') },
         { path: 'standup', name: 'standup', component: () => import('@/views/Standup.vue') },
         { path: 'modules', name: 'modules', component: () => import('@/views/Modules.vue') },

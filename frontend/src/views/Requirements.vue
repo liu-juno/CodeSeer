@@ -138,7 +138,11 @@
 
         <div v-show="currentStep === 1">
           <el-form-item label="需求描述">
-            <el-input v-model="form.description" type="textarea" :rows="8" />
+            <VditorEditor
+              v-model="form.description"
+              placeholder="请输入需求描述，支持 Markdown 格式"
+              height="300px"
+            />
           </el-form-item>
           <el-form-item label="验收标准">
             <div v-for="(item, idx) in form.criteriaList" :key="idx" style="display:flex; gap:8px; margin-bottom:8px;">
@@ -203,6 +207,7 @@ import { requirementsApi, iterationsApi, projectsApi, usersApi, attachmentsApi }
 import { usePagination } from '@/composables/usePagination'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Document } from '@element-plus/icons-vue'
+import VditorEditor from '@/components/VditorEditor.vue'
 
 const route = useRoute()
 

@@ -55,4 +55,18 @@ watch(() => props.modelValue, (newVal) => {
   border: 1px solid #dcdfe6;
   border-radius: 4px;
 }
+
+.vditor-editor :deep(.vditor-toolbar) {
+  background: #f5f7fa;
+  border-bottom: 1px solid #e8e9eb;
+}
+
+.vditor-editor :deep(.vditor-toolbar__icon) {
+  color: #606266;
+}
+
+.vditor-editor :deep(.vditor-toolbar__icon:hover) {
+  background: #e8e9eb;
+  color: #2d5bff;
+}
 </style>

@@ -41,7 +41,7 @@ const tabs = computed(() => {
 const parentName = computed(() => {
   if (route.path.includes('/project/')) return '项目'
   if (route.path.includes('/iteration/')) return '迭代'
-  if (route.path.includes('/requirement/')) return '需求'
+  if (route.path.includes('/requirement/') && route.path !== '/requirement/new') return '需求'
   return ''
 })
 
@@ -49,7 +49,7 @@ const currentName = computed(() => {
   if (route.path.endsWith('/iterations')) return '迭代管理'
   if (route.path.endsWith('/requirements')) return '需求管理'
   if (route.path.includes('/iteration/')) return '迭代详情'
-  if (route.path.includes('/requirement/')) return '需求详情'
+  if (route.path.includes('/requirement/') && route.path !== '/requirement/new') return '需求详情'
   return ''
 })
 
@@ -65,7 +65,7 @@ const goToParent = () => {
   } else if (route.path.includes('/iteration/')) {
     router.push('/projects')
   } else if (route.path.includes('/requirement/')) {
-    router.push('/projects')
+    router.push('/requirements')
   }
 }
 </script>

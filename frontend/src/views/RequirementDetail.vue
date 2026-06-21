@@ -70,7 +70,8 @@
           <el-card shadow="never">
             <div class="info-section">
               <div class="section-label">需求描述</div>
-              <div class="section-content">{{ requirement.description || '暂无描述' }}</div>
+              <MarkdownRenderer v-if="requirement.description" :content="requirement.description" />
+              <el-text v-else type="info">暂无描述</el-text>
             </div>
             <div class="info-section">
               <div class="section-label">验收标准</div>
@@ -386,6 +387,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { requirementsApi, iterationsApi, tasksApi, testRecordsApi, documentsApi, modulesApi, usersApi, attachmentsApi } from '@/api'
 import { ElMessage } from 'element-plus'
+import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 
 const route = useRoute()
 const requirement = ref<any>(null)

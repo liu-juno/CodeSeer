@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.core.database import init_db
-from app.api import projects, iterations, requirements, tasks, mcp, documents, modules, webhooks, users, config, knowledge, mcp_skills, code_changes, mcp_tokens, mcp_http, auth
+from app.api import projects, iterations, requirements, tasks, mcp, documents, modules, webhooks, users, config, knowledge, mcp_skills, code_changes, mcp_tokens, mcp_http, auth, attachments
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -43,6 +43,7 @@ app.include_router(code_changes.router, prefix=settings.API_PREFIX)
 app.include_router(mcp_tokens.router, prefix=settings.API_PREFIX)
 app.include_router(mcp_http.router, prefix=settings.API_PREFIX)
 app.include_router(auth.router, prefix=settings.API_PREFIX)
+app.include_router(attachments.router, prefix=settings.API_PREFIX)
 
 
 @app.get("/")

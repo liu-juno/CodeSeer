@@ -112,6 +112,7 @@ const pageTitleMap: Record<string, string> = {
 }
 const pageTitle = computed(() => {
   const path = currentRoute.value
+  if (path === '/requirement/new') return '需求 / 创建需求'
   if (path.startsWith('/project/')) return '项目详情'
   if (path.startsWith('/iteration/')) return '迭代详情'
   if (path.startsWith('/requirement/')) return '需求详情'

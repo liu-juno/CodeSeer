@@ -22,10 +22,7 @@ class IterationStatus(str, enum.Enum):
 
 class RequirementStatus(str, enum.Enum):
     DRAFT = "draft"
-    PENDING_ANALYSIS = "pending_analysis"
-    ANALYZED = "analyzed"
     ASSIGNED = "assigned"
-    CLAIMED = "claimed"
     IN_PROGRESS = "in_progress"
     PENDING_REVIEW = "pending_review"
     REVIEW_APPROVED = "review_approved"
@@ -228,6 +225,7 @@ class Module(Base):
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     name = Column(String(100), nullable=False)
     description = Column(Text, nullable=True)
+    project_id = Column(String(36), ForeignKey("projects.id"), nullable=True)
     parent_id = Column(String(36), ForeignKey("modules.id"), nullable=True)
     path = Column(String(500), nullable=True)
     skill_id = Column(String(36), ForeignKey("skills.id"), nullable=True)
@@ -282,8 +280,8 @@ class PhaseType(str, enum.Enum):
     CLARIFICATION = "clarification"   # 需求澄清
     PLANNING = "planning"             # 任务规划
     EXECUTION = "execution"           # 任务执行
-    REVIEW = "review"                 # 代码审查
     TESTING = "testing"               # 单元测试
+    REVIEW = "review"                 # 代码审查
 
 
 class PhaseStatus(str, enum.Enum):
@@ -495,3 +493,18 @@ class AccessToken(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", backref="access_tokens")
+
+
+class RequirementAttachment(Base):
+    __tablename__ = "requirement_attachments"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    requirement_id = Column(String(36), ForeignKey("requirements.id"), nullable=False)
+    filename = Column(String(255), nullable=False)
+    file_size = Column(Integer, nullable=False)
+    content_type = Column(String(100), nullable=True)
+    storage_path = Column(String(500), nullable=False)
+    storage_backend = Column(String(20), default="local")
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    requirement = relationship("Requirement", backref="attachments")

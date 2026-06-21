@@ -146,6 +146,35 @@ class TestGetRequirementDetail:
         assert resp.status_code == 200
         assert "error" in resp.json()
 
+    @pytest.mark.asyncio
+    async def test_get_requirement_detail_includes_attachments(
+            self, client, auth_headers, seeded_project, db):
+        """get_requirement_detail 返回需求详情时包含附件列表"""
+        from app.models.models import RequirementAttachment
+
+        # create an attachment
+        att = RequirementAttachment(
+            id="att-001",
+            requirement_id="req-001",
+            filename="需求文档.pdf",
+            file_size=1024,
+            content_type="application/pdf",
+            storage_path="/tmp/test/req-001/att-001_需求文档.pdf",
+            storage_backend="local",
+        )
+        db.add(att)
+        await db.commit()
+
+        resp = await client.post("/api/mcp/http",
+            headers=auth_headers,
+            json={"jsonrpc": "2.0", "method": "tools/call",
+                  "params": {"name": "get_requirement_detail",
+                             "arguments": {"requirement_id": "req-001"}}, "id": 11})
+        assert resp.status_code == 200
+        text = resp.json()["result"]["content"][0]["text"]
+        assert "附件列表" in text
+        assert "需求文档.pdf" in text
+
 
 class TestSyncTasks:
     @pytest.mark.asyncio

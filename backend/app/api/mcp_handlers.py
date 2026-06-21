@@ -6,8 +6,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.models import (
-    Document, Iteration, Project, Requirement, RequirementPhase, RequirementStatus,
-    PhaseType, PhaseStatus, Task, TestResult, UnitTestRecord,
+    Document, Iteration, Module, Project, Requirement, RequirementPhase, RequirementStatus,
+    PhaseType, PhaseStatus, Skill, Task, TestResult, UnitTestRecord,
 )
 from app.api.mcp_tools import ACTIVE_STATUSES, TRANSITIONS
 
@@ -175,12 +175,27 @@ async def _get_requirement_detail(args: dict, user, db: AsyncSession) -> dict:
         select(Task).where(Task.requirement_id == req_id).order_by(Task.order)
     )
     tasks = tasks_result.scalars().all()
+
+    from app.models.models import RequirementAttachment
+    attachments_result = await db.execute(
+        select(RequirementAttachment)
+        .where(RequirementAttachment.requirement_id == req_id)
+        .order_by(RequirementAttachment.created_at.desc())
+    )
+    attachments = attachments_result.scalars().all()
+
     status = req.status.value if hasattr(req.status, "value") else req.status
     priority = req.priority.value if hasattr(req.priority, "value") else req.priority
     task_lines = "\n".join(
-        f"  {i+1}. {t.title} [{t.status.value if hasattr(t.status, 'value') else t.status}]"
+        f"  {i+1}. [{t.status.value if hasattr(t.status, 'value') else t.status}] {t.title}"
         for i, t in enumerate(tasks)
     ) or "  （暂无任务）"
+
+    attachment_lines = "\n".join(
+        f"  - {a.filename} (id={a.id}, size={a.file_size})"
+        for a in attachments
+    ) or "  （暂无附件）"
+
     text = (
         f"需求详情\n"
         f"标题: {req.title}\n"
@@ -188,6 +203,7 @@ async def _get_requirement_detail(args: dict, user, db: AsyncSession) -> dict:
         f"优先级: {priority}\n"
         f"描述: {req.description or '无'}\n"
         f"验收标准: {req.acceptance_criteria or '无'}\n"
+        f"附件列表:\n{attachment_lines}\n"
         f"任务列表:\n{task_lines}"
     )
     return _text(text)
@@ -202,34 +218,61 @@ async def _sync_tasks(args: dict, user, db: AsyncSession) -> dict:
     if not result.scalar_one_or_none():
         return {"__not_found__": True}
 
-    existing = await db.execute(select(Task).where(Task.requirement_id == req_id))
-    for t in existing.scalars().all():
-        await db.delete(t)
+    existing_result = await db.execute(select(Task).where(Task.requirement_id == req_id))
+    existing_map = {t.title: t for t in existing_result.scalars().all()}
 
-    created = []
+    upserted = []
     for i, td in enumerate(tasks_data):
-        t = Task(
-            requirement_id=req_id,
-            title=td.get("title", ""),
-            description=td.get("description"),
-            order=i,
-        )
-        db.add(t)
-        created.append(t)
+        title = td.get("title", "")
+        status_str = td.get("status")
+        t = existing_map.get(title)
+        if t:
+            # update existing task
+            if td.get("description") is not None:
+                t.description = td["description"]
+            if status_str and status_str in ("pending", "in_progress", "completed", "blocked"):
+                from app.models.models import TaskStatus
+                t.status = TaskStatus(status_str)
+                if status_str == "in_progress" and not t.started_at:
+                    t.started_at = datetime.utcnow()
+                if status_str == "completed" and not t.completed_at:
+                    t.completed_at = datetime.utcnow()
+            if td.get("estimated_hours") is not None:
+                t.estimated_hours = int(td["estimated_hours"])
+            if td.get("actual_hours") is not None:
+                t.actual_hours = int(td["actual_hours"])
+        else:
+            from app.models.models import TaskStatus
+            init_status = TaskStatus(status_str) if status_str in ("pending", "in_progress", "completed", "blocked") else TaskStatus.PENDING
+            t = Task(
+                requirement_id=req_id,
+                title=title,
+                description=td.get("description"),
+                order=i,
+                status=init_status,
+                estimated_hours=int(td["estimated_hours"]) if td.get("estimated_hours") is not None else None,
+                actual_hours=int(td["actual_hours"]) if td.get("actual_hours") is not None else None,
+            )
+            if init_status == TaskStatus.COMPLETED:
+                t.completed_at = datetime.utcnow()
+            db.add(t)
+        upserted.append(t)
+
     await _advance_phase(req_id, PhaseType.PLANNING, PhaseStatus.COMPLETED, db)
     await db.commit()
-    for t in created:
+    for t in upserted:
         await db.refresh(t)
 
     task_lines = "\n".join(
         f"  {i+1}. id={t.id}  [{t.status.value}] {t.title}"
-        for i, t in enumerate(created)
+        for i, t in enumerate(upserted)
     )
     return _text(
-        f"已同步 {len(created)} 个任务到需求 {req_id}，任务列表（含 ID，执行时用于更新状态）：\n{task_lines}\n\n"
+        f"已同步 {len(upserted)} 个任务到需求 {req_id}，任务列表（含 ID）：\n{task_lines}\n\n"
         f"执行每个任务时：\n"
         f"  开始前调用 update_task_status(task_id=<id>, status=\"in_progress\")\n"
-        f"  完成后调用 update_task_status(task_id=<id>, status=\"completed\")"
+        f"  完成后调用 update_task_status(task_id=<id>, status=\"completed\")\n"
+        f"所有任务完成后，可再次调用 sync_tasks 传入最终状态和工时，平台将一次性更新。"
     )
 
 
@@ -394,29 +437,110 @@ async def _create_document(args: dict, user, db: AsyncSession) -> dict:
     return _text(f"文档已上传（id={doc.id}，类型={doc_type}）：{title}")
 
 
+async def _get_document(args: dict, user, db: AsyncSession) -> dict:
+    doc_id = args.get("document_id", "").strip()
+    if not doc_id:
+        return _text("缺少 document_id 参数")
+    result = await db.execute(select(Document).where(Document.id == doc_id))
+    doc = result.scalar_one_or_none()
+    if not doc:
+        return _text(f"文档不存在：{doc_id}")
+    body = f"# {doc.title}\n\n"
+    if doc.content:
+        body += doc.content
+    elif doc.summary:
+        body += doc.summary
+    return _text(body)
+
+
+async def _list_skills_by_project(args: dict, user, db: AsyncSession) -> dict:
+    project_id = args.get("project_id", "").strip()
+    if not project_id:
+        return _text("缺少 project_id 参数")
+
+    # 查询项目
+    proj = (await db.execute(select(Project).where(Project.id == project_id))).scalar_one_or_none()
+    if not proj:
+        return _text(f"项目不存在：{project_id}")
+
+    # 查询该项目的所有模块
+    modules = (await db.execute(
+        select(Module).where(Module.project_id == project_id)
+    )).scalars().all()
+    module_ids = [m.id for m in modules]
+    module_name_map = {m.id: m.name for m in modules}
+
+    if not module_ids:
+        return _text(f"项目「{proj.name}」暂无模块 Skill")
+
+    # 查询这些模块的 Skill
+    skills = (await db.execute(
+        select(Skill).where(
+            Skill.module_id.in_(module_ids),
+            Skill.status == "active",
+        )
+    )).scalars().all()
+
+    if not skills:
+        return _text(f"项目「{proj.name}」的模块暂无 Skill")
+
+    sections = [f"# 项目「{proj.name}」模块 Skill 列表\n\n共 {len(skills)} 个 Skill。\n"]
+    sections.append(
+        "## 安装说明\n\n"
+        "将每个 Skill 的 prompt_template 写入本地文件（目录不存在时先 mkdir -p）：\n\n"
+        "- **Claude Code**：`$PROJECT_ROOT/.claude/skills/{skill_name}/SKILL.md`\n"
+        "- **OpenCode**：`$PROJECT_ROOT/.opencode/skills/{skill_name}/SKILL.md`\n\n"
+        "其中 `{skill_name}` 为下方每个 Skill 的名称（作为目录名使用，空格替换为下划线）。\n"
+    )
+
+    for s in skills:
+        module_name = module_name_map.get(s.module_id, "")
+        dir_name = s.name.replace(" ", "_")
+        sections.append(
+            f"---\n\n"
+            f"## Skill：{s.name}\n\n"
+            f"- **模块**：{module_name}\n"
+            f"- **描述**：{s.description or ''}\n"
+            f"- **目录名**：`{dir_name}`\n\n"
+            f"### prompt_template\n\n"
+            f"```\n{s.prompt_template or ''}\n```\n"
+        )
+
+    return {"content": [{"type": "text", "text": "\n".join(sections)}]}
+
+
 async def _setup_dev_environment(args: dict, user, db: AsyncSession) -> dict:
     skill_content = _read_file(_SKILLS_DIR / "cs_integration.md")
     setup_cmd_content = _read_cmd("cs_setup")
     start_cmd_content = _read_cmd("cs_start")
     cs_doc_content = _read_cmd("cs_doc")
+    cs_skill_content = _read_cmd("cs_skill")
 
     sections = ["## CodeSeer 开发环境安装指南\n"]
-    sections.append("请根据你使用的 AI 工具，按对应步骤操作：\n")
+    sections.append(
+        "> ⚠️ **重要：所有文件必须安装到项目目录，不能安装到全局 home 目录。**\n"
+        "> 执行前先运行 `git rev-parse --show-toplevel` 获取项目根目录，记为 PROJECT_ROOT。\n"
+        "> 若不在 git 仓库中，使用 `pwd` 的输出作为 PROJECT_ROOT。\n\n"
+        "请根据你使用的 AI 工具，按对应步骤操作：\n"
+    )
 
     for harness in _HARNESS_SETUP.values():
         check_paths = "\n".join(f"  - `{p}`" for p in harness["superpowers_check_paths"])
         cmd_dir = harness["command_path"].rsplit("/", 1)[0]
+        skill = harness["skill_path"]
+        cmd = harness["command_path"]
         sections.append(
             f"### {harness['name']}\n\n"
             f"**第 1 步：检查 superpowers 是否已安装**\n{check_paths}\n\n"
             f"**第 2 步：未安装时执行**\n```\n{harness['superpowers_install']}\n```\n\n"
             f"**第 3 步：安装 CodeSeer 专属技能**\n"
-            f"将【cs_integration 技能文件】内容写入 `{harness['skill_path']}`（目录不存在时先创建）\n\n"
+            f"将【cs_integration 技能文件】内容写入 `$PROJECT_ROOT/{skill}`（目录不存在时先 mkdir -p）\n\n"
             f"**第 4 步：安装斜杠命令**\n"
-            f"将【cs_setup 命令文件】写入 `{harness['command_path']}`\n"
-            f"将【cs_start 命令文件】写入 `{cmd_dir}/cs_start.md`\n"
-            f"将【cs_doc 命令文件】写入 `{cmd_dir}/cs_doc.md`\n"
-            f"（目录不存在时先创建，文件已存在则覆盖）\n"
+            f"将【cs_setup 命令文件】写入 `$PROJECT_ROOT/{cmd}`\n"
+            f"将【cs_start 命令文件】写入 `$PROJECT_ROOT/{cmd_dir}/cs_start.md`\n"
+            f"将【cs_doc 命令文件】写入 `$PROJECT_ROOT/{cmd_dir}/cs_doc.md`\n"
+            f"将【cs_skill 命令文件】写入 `$PROJECT_ROOT/{cmd_dir}/cs_skill.md`\n"
+            f"（目录不存在时先 mkdir -p，文件已存在则覆盖）\n"
         )
 
     return {
@@ -426,6 +550,7 @@ async def _setup_dev_environment(args: dict, user, db: AsyncSession) -> dict:
             {"type": "text", "text": f"【cs_setup 命令文件】\n\n{setup_cmd_content}"},
             {"type": "text", "text": f"【cs_start 命令文件】\n\n{start_cmd_content}"},
             {"type": "text", "text": f"【cs_doc 命令文件】\n\n{cs_doc_content}"},
+            {"type": "text", "text": f"【cs_skill 命令文件】\n\n{cs_skill_content}"},
         ]
     }
 
@@ -471,5 +596,7 @@ TOOL_HANDLERS = {
     "submit_test_result": _submit_test_result,
     "update_requirement_status": _update_requirement_status,
     "create_document": _create_document,
+    "get_document": _get_document,
+    "list_skills_by_project": _list_skills_by_project,
     "setup_dev_environment": _setup_dev_environment,
 }

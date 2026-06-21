@@ -1,9 +1,5 @@
 <template>
   <div class="requirement-detail">
-    <el-link underline="never" type="primary" @click="$router.back()" style="margin-bottom:16px; display:inline-block;">
-      ← 返回
-    </el-link>
-
     <div v-if="loading">
       <el-skeleton :rows="5" animated />
     </div>

@@ -19,6 +19,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { marked } from 'marked'
+import DOMPurify from 'dompurify'
 
 const props = defineProps<{
   content: string
@@ -29,7 +30,8 @@ const activeTab = ref('preview')
 
 const renderedHtml = computed(() => {
   if (!props.content) return ''
-  return marked(props.content)
+  const rawHtml = marked(props.content)
+  return DOMPurify.sanitize(rawHtml)
 })
 </script>
 

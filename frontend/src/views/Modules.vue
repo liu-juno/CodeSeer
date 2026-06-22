@@ -1,10 +1,6 @@
 <template>
   <div class="modules-page">
     <div class="page-header">
-      <div>
-        <h1 class="page-title">模块知识库</h1>
-        <p class="page-subtitle">按模块组织需求与文档，自动沉淀领域知识</p>
-      </div>
       <div style="display:flex; align-items:center; gap:10px;">
         <el-select
           v-model="selectedProjectId"

@@ -1,10 +1,6 @@
 <template>
   <div class="users-page">
     <div class="page-header">
-      <div>
-        <h1 class="page-title">用户与角色</h1>
-        <p class="page-subtitle">管理平台用户、分配角色、配置权限</p>
-      </div>
       <el-button type="primary" @click="openCreate">
         <el-icon><Plus /></el-icon> 邀请用户
       </el-button>

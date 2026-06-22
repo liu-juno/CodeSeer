@@ -1,13 +1,6 @@
 <template>
   <div class="documents-page">
     <div class="page-header">
-      <div>
-        <h1 class="page-title">文档管理</h1>
-        <p class="page-subtitle">按模块沉淀的设计文档、API 文档，知识积累</p>
-      </div>
-      <el-button type="primary" @click="openCreate">
-        <el-icon><Plus /></el-icon> 新建文档
-      </el-button>
     </div>
 
     <el-row :gutter="14" style="margin-bottom:16px;">
@@ -34,6 +27,9 @@
         <el-option value="diagram" label="架构图" />
         <el-option value="other" label="其他" />
       </el-select>
+      <el-button type="primary" @click="openCreate">
+        <el-icon><Plus /></el-icon> 新建文档
+      </el-button>
     </div>
 
     <el-card shadow="never" body-style="padding:0;">

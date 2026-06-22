@@ -1,10 +1,6 @@
 <template>
   <div class="standup-page">
     <div class="page-header">
-      <div>
-        <h1 class="page-title">早会视图</h1>
-        <p class="page-subtitle">按开发人员查看需求进度与阻塞情况</p>
-      </div>
       <div style="display:flex;gap:10px;align-items:center;">
         <el-select v-model="selectedIteration" placeholder="全部迭代" style="width:200px" clearable>
           <el-option v-for="it in iterations" :key="it.id" :label="it.name" :value="it.id" />

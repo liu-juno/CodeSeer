@@ -59,23 +59,26 @@ async function handleLogin() {
   align-items: center;
   justify-content: center;
   background: #f3f4f6;
+  padding: 20px;
 }
 .login-card {
-  width: 360px;
-  border-radius: 12px;
+  width: 100%;
+  max-width: 480px;
+  padding: 32px;
+  border-radius: 16px;
 }
 .login-logo {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 24px;
+  gap: 12px;
+  margin-bottom: 32px;
 }
-.logo-icon { font-size: 24px; }
-.logo-text { font-size: 20px; font-weight: 700; color: #111827; }
+.logo-icon { font-size: 32px; }
+.logo-text { font-size: 24px; font-weight: 700; color: #111827; }
 .login-title {
-  font-size: 18px;
+  font-size: 22px;
   font-weight: 600;
   color: #111827;
-  margin-bottom: 24px;
+  margin-bottom: 28px;
 }
 </style>

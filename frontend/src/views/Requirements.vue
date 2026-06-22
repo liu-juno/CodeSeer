@@ -1,10 +1,6 @@
 <template>
   <div class="requirements-page">
     <div class="page-header">
-      <div class="header-left">
-        <h1 class="page-title">需求管理</h1>
-        <el-text class="text-muted" style="margin-left:12px;">{{ total }} 条需求</el-text>
-      </div>
       <div class="header-right">
         <el-input v-model="filter.search" placeholder="搜索需求..." style="width:200px;" clearable @input="onFilterChange" />
         <el-select v-model="filter.status" placeholder="全部状态" style="width:130px" clearable @change="onFilterChange">
@@ -213,7 +209,7 @@ onMounted(fetchData)
 </script>
 
 <style scoped>
-.requirements-page { max-width: 1200px; }
+.requirements-page { width: 100%; }
 .page-header {
   display: flex;
   align-items: center;

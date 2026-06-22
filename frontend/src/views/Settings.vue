@@ -1,10 +1,6 @@
 <template>
   <div class="settings-page">
     <div class="page-header">
-      <div>
-        <h1 class="page-title">系统设置</h1>
-        <p class="page-subtitle">配置状态机、自定义字段、平台高级选项</p>
-      </div>
     </div>
 
     <el-tabs v-model="activeTab">

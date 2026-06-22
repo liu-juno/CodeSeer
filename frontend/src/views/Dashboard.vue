@@ -1,10 +1,6 @@
 <template>
   <div class="dashboard">
     <div class="page-header">
-      <div>
-        <h1 class="page-title">工作台</h1>
-        <p class="page-subtitle">当前迭代进度一览</p>
-      </div>
       <div style="display:flex; align-items:center; gap:10px;">
         <el-select v-model="selectedIteration" placeholder="选择迭代" style="width:200px;" clearable>
           <el-option v-for="iteration in iterations" :key="iteration.id" :label="iteration.name" :value="iteration.id" />

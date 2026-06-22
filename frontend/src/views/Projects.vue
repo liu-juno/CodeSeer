@@ -1,10 +1,6 @@
 <template>
   <div class="projects-page">
     <div class="page-header">
-      <div class="header-left">
-        <h1 class="page-title">项目管理</h1>
-        <el-text class="text-muted" style="margin-left:12px;">{{ total }} 个项目</el-text>
-      </div>
       <div class="header-right">
         <el-input v-model="search" placeholder="搜索项目..." style="width:200px;" clearable @input="onSearch" />
         <el-button type="primary" @click="showCreateModal = true">
@@ -227,7 +223,7 @@ onMounted(() => fetchPage(1))
 </script>
 
 <style scoped>
-.projects-page { max-width: 1200px; }
+.projects-page { width: 100%; }
 .page-header {
   display: flex;
   align-items: center;

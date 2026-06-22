@@ -1,10 +1,6 @@
 <template>
   <div class="webhooks-page">
     <div class="page-header">
-      <div>
-        <h1 class="page-title">Webhook 配置</h1>
-        <p class="page-subtitle">订阅平台事件，外部系统自动接收通知</p>
-      </div>
       <el-button type="primary" @click="openCreate">
         <el-icon><Plus /></el-icon> 新建 Webhook
       </el-button>

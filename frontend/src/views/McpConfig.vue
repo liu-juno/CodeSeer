@@ -1,10 +1,6 @@
 <template>
   <div class="mcp-config-page">
     <div class="page-header">
-      <div>
-        <h1 class="page-title">MCP 配置</h1>
-        <p class="page-subtitle">配置 Claude Code MCP 连接，让开发者通过 AI 接入平台</p>
-      </div>
     </div>
 
     <el-card shadow="never" class="ai-card" style="margin-bottom:16px;">

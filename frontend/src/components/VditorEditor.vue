@@ -25,15 +25,18 @@ const handleValueChanged = (value: string) => {
 }
 
 onMounted(() => {
-  vditor = new Vditor(editorRef.value!, {
+  const editorElement = editorRef.value!
+  vditor = new Vditor(editorElement, {
     value: props.modelValue,
     placeholder: props.placeholder || '',
     height: parseInt(props.height || '300'),
     mode: 'wysiwyg',
     cache: { id: 'vditor-editor' },
     after: () => {
-      vditor!.getElement().addEventListener('input', () => {
-        handleValueChanged(vditor!.getValue())
+      editorElement.addEventListener('input', () => {
+        if (vditor) {
+          handleValueChanged(vditor.getValue())
+        }
       })
     }
   })
@@ -65,6 +68,9 @@ watch(() => props.modelValue, (newVal) => {
 .vditor-editor .vditor-toolbar {
   padding: 4px 8px;
   background: #f5f7fa;
+  display: flex !important;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 
 .vditor-editor .vditor-toolbar__icon {
@@ -74,6 +80,33 @@ watch(() => props.modelValue, (newVal) => {
 .vditor-editor .vditor-toolbar__icon:hover {
   color: #4285f4;
   background: #e8e9eb;
+}
+
+.vditor-editor .vditor-toolbar__item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  color: #586069;
+}
+
+.vditor-editor .vditor-toolbar__item:hover {
+  background: #e8e9eb;
+  color: #4285f4;
+}
+
+.vditor-editor .vditor-icon {
+  width: 16px;
+  height: 16px;
+  color: inherit;
+}
+
+.vditor-editor .vditor-icon svg {
+  width: 100%;
+  height: 100%;
+  fill: currentColor;
 }
 
 .vditor-editor .vditor-content {

@@ -1,5 +1,5 @@
 <template>
-  <div class="toptab">
+  <div class="toptab" v-if="parentName || currentName || tabs.length > 0">
     <div class="toptab-breadcrumb">
       <span v-if="parentName" class="toptab-parent" @click="goToParent">
         {{ parentName }}

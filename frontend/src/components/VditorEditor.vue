@@ -54,29 +54,29 @@ watch(() => props.modelValue, (newVal) => {
 .vditor-editor {
   border: 1px solid #dcdfe6;
   border-radius: 4px;
+  overflow: hidden;
+}
+
+.vditor-editor .vditor {
+  border: none;
+  border-radius: 0;
 }
 
 .vditor-editor .vditor-toolbar {
-  background: #f5f7fa;
-  border-bottom: 1px solid #e8e9eb;
   padding: 4px 8px;
+  background: #f5f7fa;
 }
 
-.vditor-editor .vditor-toolbar__btn {
-  color: #606266;
-  width: 28px;
-  height: 28px;
-  border-radius: 4px;
+.vditor-editor .vditor-toolbar__icon {
+  color: #586069;
 }
 
-.vditor-editor .vditor-toolbar__btn:hover {
+.vditor-editor .vditor-toolbar__icon:hover {
+  color: #4285f4;
   background: #e8e9eb;
-  color: #2d5bff;
 }
 
-.vditor-editor .vditor-toolbar__btn svg {
-  fill: currentColor;
-  width: 16px;
-  height: 16px;
+.vditor-editor .vditor-content {
+  background: #fff;
 }
 </style>

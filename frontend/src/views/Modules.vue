@@ -48,9 +48,13 @@
                 <div>
                   <h2 class="module-title">{{ selected.name }}</h2>
                   <el-text v-if="selected.description" type="info" style="margin-top:6px; display:block;">{{ selected.description }}</el-text>
-                  <el-text type="info" size="small" style="margin-top:8px; display:block;">
-                    路径：{{ selected.path || '/' }}{{ selected.name }} · {{ selected.document_count }} 份文档
-                  </el-text>
+                  <div class="module-stats">
+                    <span>路径：{{ selected.path || '/' }}{{ selected.name }}</span>
+                    <el-divider direction="vertical" />
+                    <span>{{ selected.document_count }} 份文档</span>
+                    <el-divider direction="vertical" />
+                    <span>{{ selected.children?.length || 0 }} 个子模块</span>
+                  </div>
                 </div>
                 <div style="display:flex; gap:8px; flex-shrink:0;">
                   <el-button @click="openCreate(selected.id)">+ 子模块</el-button>
@@ -62,43 +66,44 @@
             </template>
           </el-card>
 
-          <!-- 归档文档卡片区 -->
-          <div class="section-title">归档文档 <span class="section-count">{{ moduleDocs.length }}</span></div>
-          <el-empty v-if="moduleDocs.length === 0" description="该模块下暂无归档文档" style="padding:24px 0;" />
-          <div v-else class="doc-cards">
-            <div v-for="doc in moduleDocs" :key="doc.id" class="doc-card">
-              <div class="doc-card-icon" :class="doc.document_type">{{ docTypeIcon(doc.document_type) }}</div>
-              <div class="doc-card-body">
-                <div class="doc-card-title">{{ doc.title }}</div>
-                <div class="doc-card-meta">
-                  <el-tag size="small" effect="plain">{{ docTypeText(doc.document_type) }}</el-tag>
-                  <span class="doc-card-version">v{{ doc.version }}</span>
-                  <span class="doc-card-date">{{ formatDate(doc.archived_at) }}</span>
+          <el-tabs v-model="activeTab" class="module-tabs">
+            <el-tab-pane label="归档文档" name="docs">
+              <el-empty v-if="moduleDocs.length === 0" description="该模块下暂无归档文档" />
+              <div v-else class="doc-cards">
+                <div v-for="doc in moduleDocs" :key="doc.id" class="doc-card">
+                  <div class="doc-card-icon" :class="doc.document_type">{{ docTypeIcon(doc.document_type) }}</div>
+                  <div class="doc-card-body">
+                    <div class="doc-card-title">{{ doc.title }}</div>
+                    <div class="doc-card-meta">
+                      <el-tag size="small" effect="plain">{{ docTypeText(doc.document_type) }}</el-tag>
+                      <span class="doc-card-version">v{{ doc.version }}</span>
+                      <span class="doc-card-date">{{ formatDate(doc.archived_at) }}</span>
+                    </div>
+                    <div v-if="doc.summary" class="doc-card-summary">{{ doc.summary }}</div>
+                  </div>
                 </div>
-                <div v-if="doc.summary" class="doc-card-summary">{{ doc.summary }}</div>
               </div>
-            </div>
-          </div>
-
-          <!-- Skill 卡片 -->
-          <div class="section-title" style="margin-top:24px;">Skill</div>
-          <div v-if="!moduleSkill" class="skill-empty">
-            <span style="color:#9ca3af; font-size:13px;">尚未创建 Skill，点击右上角「创建 Skill」生成</span>
-          </div>
-          <div v-else class="skill-card">
-            <div class="skill-card-header">
-              <div>
-                <span class="skill-card-name">{{ moduleSkill.name }}</span>
-                <span class="skill-card-version">v{{ moduleSkill.version }}</span>
+            </el-tab-pane>
+            <el-tab-pane label="Skill" name="skill">
+              <div v-if="!moduleSkill" class="skill-empty">
+                <span style="color:#9ca3af; font-size:13px;">尚未创建 Skill，点击右上角「创建 Skill」生成</span>
               </div>
-              <div style="display:flex; align-items:center; gap:8px;">
-                <el-tag size="small" type="success" effect="dark">active</el-tag>
-                <el-button v-if="isAdmin" size="small" type="danger" text @click="deleteSkill" style="color:#f87171; padding:0;">删除</el-button>
+              <div v-else class="skill-card">
+                <div class="skill-card-header">
+                  <div>
+                    <span class="skill-card-name">{{ moduleSkill.name }}</span>
+                    <span class="skill-card-version">v{{ moduleSkill.version }}</span>
+                  </div>
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    <el-tag size="small" type="success" effect="dark">active</el-tag>
+                    <el-button v-if="isAdmin" size="small" type="danger" text @click="deleteSkill" style="color:#f87171; padding:0;">删除</el-button>
+                  </div>
+                </div>
+                <div v-if="moduleSkill.description" class="skill-card-desc">{{ moduleSkill.description }}</div>
+                <pre class="skill-card-prompt">{{ moduleSkill.prompt_template }}</pre>
               </div>
-            </div>
-            <div v-if="moduleSkill.description" class="skill-card-desc">{{ moduleSkill.description }}</div>
-            <pre class="skill-card-prompt">{{ moduleSkill.prompt_template }}</pre>
-          </div>
+            </el-tab-pane>
+          </el-tabs>
         </template>
       </div>
     </div>
@@ -179,6 +184,7 @@ const moduleDocs = ref<any[]>([])
 const moduleSkill = ref<any>(null)
 const showForm = ref(false)
 const showSkillDialog = ref(false)
+const activeTab = ref('docs')
 const editing = ref<any>(null)
 const saving = ref(false)
 const generating = ref(false)
@@ -366,6 +372,12 @@ onMounted(fetchProjects)
 .tree-icon { font-size:11px; color:#9ca3af; flex-shrink:0; width:12px; }
 .tree-name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .module-title { font-size:18px; font-weight:700; color:#111827; margin:0; }
+.module-stats {
+  display:flex; align-items:center; gap:0;
+  font-size:12.5px; color:#6b7280; margin-top:8px;
+}
+.module-tabs { margin-top:0; }
+.module-tabs .el-tabs__header { margin:0; }
 
 /* 区块标题 */
 .section-title {

@@ -310,12 +310,43 @@ async def _start_brainstorming(args: dict, user, db: AsyncSession) -> dict:
         select(Task).where(Task.requirement_id == req_id).order_by(Task.order)
     )
     tasks = tasks_result.scalars().all()
+
+    from app.models.models import RequirementAttachment, Document, Module, Skill
+    attachments_result = await db.execute(
+        select(RequirementAttachment)
+        .where(RequirementAttachment.requirement_id == req_id)
+        .order_by(RequirementAttachment.created_at.desc())
+    )
+    attachments = attachments_result.scalars().all()
+
+    docs_result = await db.execute(
+        select(Document).where(Document.requirement_id == req_id)
+    )
+    docs = docs_result.scalars().all()
+    module_ids = list(set(d.module_id for d in docs if d.module_id))
+    module_skills = []
+    if module_ids:
+        skills_result = await db.execute(
+            select(Skill).where(Skill.module_id.in_(module_ids), Skill.status == "active")
+        )
+        module_skills = skills_result.scalars().all()
+
     status = req.status.value if hasattr(req.status, "value") else req.status
     priority = req.priority.value if hasattr(req.priority, "value") else req.priority
     task_lines = "\n".join(
-        f"  {i+1}. [{t.status.value if hasattr(t.status, 'value') else t.status}] {t.title}"
+        f"  {i+1}. [{t.status.value if hasattr(t.status, "value") else t.status}] {t.title}"
         for i, t in enumerate(tasks)
     ) or "  （暂无任务）"
+
+    attachment_lines = "\n".join(
+        f"  - {a.filename} (id={a.id}, size={a.file_size})"
+        for a in attachments
+    ) or "  （暂无附件）"
+
+    skill_lines = "\n".join(
+        f"  - **{s.name}** (v{s.version}): {s.description or '无描述'}"
+        for s in module_skills
+    ) or "  （暂无关联 Skill）"
 
     context = (
         f"## 需求上下文\n\n"
@@ -324,6 +355,8 @@ async def _start_brainstorming(args: dict, user, db: AsyncSession) -> dict:
         f"**状态**: {status}\n"
         f"**描述**:\n{req.description or '（无描述）'}\n\n"
         f"**验收标准**:\n{req.acceptance_criteria or '（无验收标准）'}\n\n"
+        f"**附件列表**:\n{attachment_lines}\n\n"
+        f"**关联模块 Skill**:\n{skill_lines}\n\n"
         f"**现有任务**:\n{task_lines}\n"
     )
 

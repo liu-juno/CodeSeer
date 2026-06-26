@@ -571,3 +571,94 @@ class CodeChangeResponse(BaseModel):
 class CodeChangeListResponse(BaseModel):
     requirement_id: Optional[str]
     changes: List[CodeChangeResponse]
+
+
+# Defect Schemas
+from app.models.models import DefectStatus, DefectSeverity, DefectPriority
+
+
+class DefectBase(BaseModel):
+    title: str
+    description: Optional[str] = None
+    severity: DefectSeverity = DefectSeverity.MAJOR
+    priority: DefectPriority = DefectPriority.P2
+    project_id: str
+    requirement_id: Optional[str] = None
+    module_id: Optional[str] = None
+    iteration_id: Optional[str] = None
+    assignees: Optional[List[str]] = []
+    labels: Optional[List[str]] = []
+    steps_to_reproduce: Optional[str] = None
+    environment: Optional[str] = None
+
+
+class DefectCreate(DefectBase):
+    pass
+
+
+class DefectUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    severity: Optional[DefectSeverity] = None
+    priority: Optional[DefectPriority] = None
+    status: Optional[DefectStatus] = None
+    assignees: Optional[List[str]] = None
+    labels: Optional[List[str]] = None
+    steps_to_reproduce: Optional[str] = None
+    environment: Optional[str] = None
+    requirement_id: Optional[str] = None
+    module_id: Optional[str] = None
+    iteration_id: Optional[str] = None
+
+
+class DefectCommentCreate(BaseModel):
+    content: str
+
+
+class DefectCommentResponse(BaseModel):
+    id: str
+    defect_id: str
+    user_id: Optional[str]
+    content: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class DefectLogResponse(BaseModel):
+    id: str
+    defect_id: str
+    user_id: Optional[str]
+    action: str
+    old_value: Optional[str]
+    new_value: Optional[str]
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class DefectResponse(BaseModel):
+    id: str
+    title: str
+    description: Optional[str]
+    severity: DefectSeverity
+    priority: DefectPriority
+    status: DefectStatus
+    project_id: str
+    requirement_id: Optional[str]
+    module_id: Optional[str]
+    iteration_id: Optional[str]
+    assignees: List[str]
+    labels: List[str]
+    steps_to_reproduce: Optional[str]
+    environment: Optional[str]
+    creator_id: Optional[str]
+    created_at: datetime
+    updated_at: datetime
+    comments: List[DefectCommentResponse] = []
+    logs: List[DefectLogResponse] = []
+
+    class Config:
+        from_attributes = True

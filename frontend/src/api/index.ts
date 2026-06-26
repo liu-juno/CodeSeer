@@ -175,4 +175,32 @@ export const attachmentsApi = {
     api.delete(`/requirements/${requirementId}/attachments/${attachmentId}`),
 }
 
+// Defects API
+export const defectsApi = {
+  list: (params?: {
+    project_id?: string
+    status?: string
+    severity?: string
+    priority?: string
+    assignee?: string
+    creator_id?: string
+    module_id?: string
+    requirement_id?: string
+  }) => api.get('/defects', { params }),
+
+  get: (id: string) => api.get(`/defects/${id}`),
+
+  create: (data: any) => api.post('/defects', data),
+
+  update: (id: string, data: any) => api.patch(`/defects/${id}`, data),
+
+  delete: (id: string) => api.delete(`/defects/${id}`),
+
+  listComments: (id: string) => api.get(`/defects/${id}/comments`),
+
+  createComment: (id: string, data: { content: string }) => api.post(`/defects/${id}/comments`, data),
+
+  listLogs: (id: string) => api.get(`/defects/${id}/logs`),
+}
+
 export default api

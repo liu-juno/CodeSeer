@@ -25,6 +25,14 @@ const router = createRouter({
         { path: 'users', name: 'users', component: () => import('@/views/Users.vue') },
         { path: 'settings', name: 'settings', component: () => import('@/views/Settings.vue') },
         { path: 'mcp-config', name: 'mcp-config', component: () => import('@/views/McpConfig.vue') },
+        {
+          path: 'defects',
+          children: [
+            { path: '', component: () => import('@/views/Defects.vue') },
+            { path: 'new', component: () => import('@/views/DefectCreate.vue') },
+            { path: ':id', component: () => import('@/views/DefectDetail.vue') },
+          ]
+        },
       ],
     },
   ],

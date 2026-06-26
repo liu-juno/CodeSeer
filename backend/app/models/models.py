@@ -508,3 +508,82 @@ class RequirementAttachment(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     requirement = relationship("Requirement", backref="attachments")
+
+
+# ── 缺陷管理 ──────────────────────────────────────────────────────────────────
+
+class DefectStatus(str, enum.Enum):
+    NEW = "new"
+    CONFIRMED = "confirmed"
+    FIXING = "fixing"
+    VERIFYING = "verifying"
+    CLOSED = "closed"
+
+
+class DefectSeverity(str, enum.Enum):
+    FATAL = "fatal"
+    CRITICAL = "critical"
+    MAJOR = "major"
+    MINOR = "minor"
+
+
+class DefectPriority(str, enum.Enum):
+    P0 = "p0"
+    P1 = "p1"
+    P2 = "p2"
+    P3 = "p3"
+
+
+class Defect(Base):
+    __tablename__ = "defects"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    title = Column(String(200), nullable=False)
+    description = Column(Text, nullable=True)
+    severity = Column(Enum(DefectSeverity), default=DefectSeverity.MAJOR)
+    priority = Column(Enum(DefectPriority), default=DefectPriority.P2)
+    status = Column(Enum(DefectStatus), default=DefectStatus.NEW)
+    project_id = Column(String(36), ForeignKey("projects.id"), nullable=False)
+    requirement_id = Column(String(36), ForeignKey("requirements.id"), nullable=True)
+    module_id = Column(String(36), ForeignKey("modules.id"), nullable=True)
+    iteration_id = Column(String(36), ForeignKey("iterations.id"), nullable=True)
+    assignees = Column(Text, nullable=True)
+    labels = Column(Text, nullable=True)
+    steps_to_reproduce = Column(Text, nullable=True)
+    environment = Column(Text, nullable=True)
+    creator_id = Column(String(36), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    project = relationship("Project")
+    requirement = relationship("Requirement")
+    module = relationship("Module")
+    iteration = relationship("Iteration")
+    comments = relationship("DefectComment", back_populates="defect", cascade="all, delete-orphan")
+    logs = relationship("DefectLog", back_populates="defect", cascade="all, delete-orphan")
+
+
+class DefectComment(Base):
+    __tablename__ = "defect_comments"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    defect_id = Column(String(36), ForeignKey("defects.id"), nullable=False)
+    user_id = Column(String(36), nullable=True)
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    defect = relationship("Defect", back_populates="comments")
+
+
+class DefectLog(Base):
+    __tablename__ = "defect_logs"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    defect_id = Column(String(36), ForeignKey("defects.id"), nullable=False)
+    user_id = Column(String(36), nullable=True)
+    action = Column(String(50), nullable=False)
+    old_value = Column(Text, nullable=True)
+    new_value = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    defect = relationship("Defect", back_populates="logs")

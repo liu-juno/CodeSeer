@@ -662,3 +662,31 @@ class DefectResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ProjectMember Schemas
+class ProjectMemberCreate(BaseModel):
+    user_id: str
+    role: str = "dev"
+    invited_by: Optional[str] = None
+
+
+class ProjectMemberUpdate(BaseModel):
+    role: Optional[str] = None
+    status: Optional[str] = None
+
+
+class ProjectMemberResponse(BaseModel):
+    id: str
+    project_id: str
+    user_id: str
+    role: str
+    status: str
+    invited_by: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    user_name: Optional[str] = None
+    user_email: Optional[str] = None
+
+    class Config:
+        from_attributes = True

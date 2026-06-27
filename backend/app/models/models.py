@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, Text, DateTime, Enum, ForeignKey, Integer, Boolean
+from sqlalchemy import Column, String, Text, DateTime, Enum, ForeignKey, Integer, Boolean, UniqueConstraint
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 import enum
@@ -51,6 +51,7 @@ class Project(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     iterations = relationship("Iteration", back_populates="project")
+    members = relationship("ProjectMember", back_populates="project", cascade="all, delete-orphan")
 
 
 class Iteration(Base):
@@ -440,6 +441,8 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    project_memberships = relationship("ProjectMember", back_populates="user", cascade="all, delete-orphan")
+
 
 # ── 代码变更记录 ─────────────────────────────────────────────────────────────
 
@@ -587,3 +590,26 @@ class DefectLog(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     defect = relationship("Defect", back_populates="logs")
+
+
+# ── 项目成员 ──────────────────────────────────────────────────────────────────
+
+class ProjectMember(Base):
+    __tablename__ = "project_members"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    project_id = Column(String(36), ForeignKey("projects.id"), nullable=False)
+    user_id = Column(String(36), ForeignKey("users.id"), nullable=False)
+    role = Column(String(20), nullable=False, default="dev")
+    status = Column(String(20), nullable=False, default="approved")
+    invited_by = Column(String(36), ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    project = relationship("Project", back_populates="members")
+    user = relationship("User", foreign_keys=[user_id], back_populates="project_memberships")
+    inviter = relationship("User", foreign_keys=[invited_by])
+
+    __table_args__ = (
+        UniqueConstraint('project_id', 'user_id', name='uk_project_user'),
+    )

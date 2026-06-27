@@ -1,8 +1,15 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import declarative_base
+from urllib.parse import quote_plus
 from .config import settings
 
-engine = create_async_engine(settings.DATABASE_URL, echo=True)
+def get_database_url():
+    if settings.DB_TYPE == "mysql":
+        password = quote_plus(settings.MYSQL_PASSWORD)
+        return f"mysql+aiomysql://{settings.MYSQL_USER}:{password}@{settings.MYSQL_HOST}:{settings.MYSQL_PORT}/{settings.MYSQL_DATABASE}"
+    return "sqlite+aiosqlite:///./codeseer.db"
+
+engine = create_async_engine(get_database_url(), echo=True)
 
 async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 

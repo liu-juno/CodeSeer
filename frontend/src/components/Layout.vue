@@ -24,6 +24,10 @@
           <el-icon><Document /></el-icon>
           <template #title>需求管理</template>
         </el-menu-item>
+        <el-menu-item index="/defects">
+          <el-icon><WarnTriangleFilled /></el-icon>
+          <template #title>缺陷管理</template>
+        </el-menu-item>
         <el-menu-item index="/dashboard">
           <el-icon><DataLine /></el-icon>
           <template #title>仪表盘</template>
@@ -103,7 +107,7 @@ import { useAuthStore } from '@/stores/auth'
 import {
   Folder, Timer, Document, DataLine, Calendar,
   Grid, Files, Connection, User, Setting,
-  Fold, Expand
+  Fold, Expand, WarnTriangleFilled
 } from '@element-plus/icons-vue'
 
 const route = useRoute()

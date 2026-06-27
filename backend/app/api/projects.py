@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, and_
 from typing import List
 from uuid import UUID
 
 from app.core.database import get_db
-from app.models.models import Project, Iteration, Requirement
-from app.schemas.schemas import ProjectCreate, ProjectUpdate, ProjectResponse, PaginatedResponse
+from app.core.auth import get_current_user
+from app.models.models import Project, Iteration, Requirement, ProjectMember, User
+from app.schemas.schemas import ProjectCreate, ProjectUpdate, ProjectResponse, PaginatedResponse, ProjectMemberCreate, ProjectMemberUpdate, ProjectMemberResponse
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -138,3 +139,235 @@ async def project_statistics(project_id: UUID, db: AsyncSession = Depends(get_db
         "progress_pct": round((completed / total) * 100) if total else 0,
         "status_distribution": status_counts,
     }
+
+
+async def check_project_admin(project_id: str, user_id: str, db: AsyncSession) -> bool:
+    """检查用户是否是项目管理员或创建人"""
+    project_result = await db.execute(select(Project).where(Project.id == project_id))
+    project = project_result.scalar_one_or_none()
+    if project and project.owner_id == user_id:
+        return True
+    member_result = await db.execute(
+        select(ProjectMember).where(
+            and_(
+                ProjectMember.project_id == project_id,
+                ProjectMember.user_id == user_id,
+                ProjectMember.role == "admin",
+                ProjectMember.status == "approved"
+            )
+        )
+    )
+    return member_result.scalar_one_or_none() is not None
+
+async def check_project_member(project_id: str, user_id: str, db: AsyncSession) -> bool:
+    """检查用户是否是项目成员"""
+    result = await db.execute(
+        select(ProjectMember).where(
+            and_(
+                ProjectMember.project_id == project_id,
+                ProjectMember.user_id == user_id,
+                ProjectMember.status == "approved"
+            )
+        )
+    )
+    return result.scalar_one_or_none() is not None
+
+
+@router.get("/projects/{project_id}/members", response_model=List[ProjectMemberResponse])
+async def list_project_members(project_id: str, db: AsyncSession = Depends(get_db)):
+    """列出项目所有成员"""
+    result = await db.execute(
+        select(ProjectMember).where(ProjectMember.project_id == project_id)
+    )
+    members = result.scalars().all()
+    response = []
+    for m in members:
+        user_result = await db.execute(select(User).where(User.id == m.user_id))
+        user = user_result.scalar_one_or_none()
+        response.append(ProjectMemberResponse(
+            id=m.id,
+            project_id=m.project_id,
+            user_id=m.user_id,
+            role=m.role,
+            status=m.status,
+            invited_by=m.invited_by,
+            created_at=m.created_at,
+            updated_at=m.updated_at,
+            user_name=user.name if user else None,
+            user_email=user.email if user else None
+        ))
+    return response
+
+@router.post("/projects/{project_id}/members", response_model=ProjectMemberResponse)
+async def add_project_member(project_id: str, member: ProjectMemberCreate, db: AsyncSession = Depends(get_db)):
+    """管理员添加项目成员（直接成为 approved）"""
+    user_result = await db.execute(select(User).where(User.id == member.user_id))
+    user = user_result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="用户不存在")
+
+    existing = await db.execute(
+        select(ProjectMember).where(
+            and_(ProjectMember.project_id == project_id, ProjectMember.user_id == member.user_id)
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="该用户已是项目成员")
+
+    new_member = ProjectMember(
+        project_id=project_id,
+        user_id=member.user_id,
+        role=member.role,
+        status="approved",
+        invited_by=member.invited_by
+    )
+    db.add(new_member)
+    await db.commit()
+    await db.refresh(new_member)
+    return ProjectMemberResponse(
+        id=new_member.id,
+        project_id=new_member.project_id,
+        user_id=new_member.user_id,
+        role=new_member.role,
+        status=new_member.status,
+        invited_by=new_member.invited_by,
+        created_at=new_member.created_at,
+        updated_at=new_member.updated_at,
+        user_name=user.name,
+        user_email=user.email
+    )
+
+@router.delete("/projects/{project_id}/members/{user_id}")
+async def remove_project_member(project_id: str, user_id: str, db: AsyncSession = Depends(get_db)):
+    """管理员移除项目成员"""
+    result = await db.execute(
+        select(ProjectMember).where(
+            and_(ProjectMember.project_id == project_id, ProjectMember.user_id == user_id)
+        )
+    )
+    member = result.scalar_one_or_none()
+    if not member:
+        raise HTTPException(status_code=404, detail="成员不存在")
+    await db.delete(member)
+    await db.commit()
+    return {"message": "成员已移除"}
+
+@router.patch("/projects/{project_id}/members/{user_id}", response_model=ProjectMemberResponse)
+async def update_project_member(project_id: str, user_id: str, update: ProjectMemberUpdate, db: AsyncSession = Depends(get_db)):
+    """更新项目成员角色或状态"""
+    result = await db.execute(
+        select(ProjectMember).where(
+            and_(ProjectMember.project_id == project_id, ProjectMember.user_id == user_id)
+        )
+    )
+    member = result.scalar_one_or_none()
+    if not member:
+        raise HTTPException(status_code=404, detail="成员不存在")
+    if update.role is not None:
+        member.role = update.role
+    if update.status is not None:
+        member.status = update.status
+    await db.commit()
+    await db.refresh(member)
+    return ProjectMemberResponse(
+        id=member.id,
+        project_id=member.project_id,
+        user_id=member.user_id,
+        role=member.role,
+        status=member.status,
+        invited_by=member.invited_by,
+        created_at=member.created_at,
+        updated_at=member.updated_at
+    )
+
+@router.post("/projects/{project_id}/apply", response_model=ProjectMemberResponse)
+async def apply_to_project(project_id: str, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """用户申请加入项目"""
+    project_result = await db.execute(select(Project).where(Project.id == project_id))
+    if not project_result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="项目不存在")
+
+    existing = await db.execute(
+        select(ProjectMember).where(
+            and_(ProjectMember.project_id == project_id, ProjectMember.user_id == current_user.id)
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="您已是项目成员")
+
+    new_member = ProjectMember(
+        project_id=project_id,
+        user_id=current_user.id,
+        role="dev",
+        status="pending"
+    )
+    db.add(new_member)
+    await db.commit()
+    await db.refresh(new_member)
+    return ProjectMemberResponse(
+        id=new_member.id,
+        project_id=new_member.project_id,
+        user_id=new_member.user_id,
+        role=new_member.role,
+        status=new_member.status,
+        invited_by=new_member.invited_by,
+        created_at=new_member.created_at,
+        updated_at=new_member.updated_at,
+        user_name=current_user.name,
+        user_email=current_user.email
+    )
+
+@router.post("/projects/{project_id}/approve/{user_id}", response_model=ProjectMemberResponse)
+async def approve_project_member(project_id: str, user_id: str, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """项目创建人或管理员批准申请"""
+    if not await check_project_admin(project_id, current_user.id, db):
+        raise HTTPException(status_code=403, detail="需要项目管理员权限")
+
+    result = await db.execute(
+        select(ProjectMember).where(
+            and_(ProjectMember.project_id == project_id, ProjectMember.user_id == user_id)
+        )
+    )
+    member = result.scalar_one_or_none()
+    if not member:
+        raise HTTPException(status_code=404, detail="申请不存在")
+    member.status = "approved"
+    await db.commit()
+    await db.refresh(member)
+    return ProjectMemberResponse(
+        id=member.id,
+        project_id=member.project_id,
+        user_id=member.user_id,
+        role=member.role,
+        status=member.status,
+        invited_by=member.invited_by,
+        created_at=member.created_at,
+        updated_at=member.updated_at
+    )
+
+@router.post("/projects/{project_id}/reject/{user_id}")
+async def reject_project_member(project_id: str, user_id: str, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """项目创建人或管理员拒绝申请"""
+    if not await check_project_admin(project_id, current_user.id, db):
+        raise HTTPException(status_code=403, detail="需要项目管理员权限")
+
+    result = await db.execute(
+        select(ProjectMember).where(
+            and_(ProjectMember.project_id == project_id, ProjectMember.user_id == user_id)
+        )
+    )
+    member = result.scalar_one_or_none()
+    if not member:
+        raise HTTPException(status_code=404, detail="申请不存在")
+    await db.delete(member)
+    await db.commit()
+    return {"message": "已拒绝申请"}
+
+@router.get("/projects/mine", response_model=List[ProjectResponse])
+async def get_my_projects(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """获取当前用户参与的所有项目"""
+    result = await db.execute(
+        select(Project).join(ProjectMember).where(ProjectMember.user_id == current_user.id)
+    )
+    projects = result.scalars().all()
+    return [ProjectResponse.model_validate(p) for p in projects]

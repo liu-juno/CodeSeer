@@ -7,8 +7,16 @@ class Settings(BaseSettings):
     VERSION: str = "0.1.0"
     API_PREFIX: str = "/api"
 
-    # Database - SQLite for development, PostgreSQL for production
+    # Database - MySQL for production, SQLite for development
+    # MySQL: mysql+aiomysql://user:password@host:port/dbname
+    # SQLite: sqlite+aiosqlite:///./codeseer.db
+    DB_TYPE: str = "mysql"  # "mysql" or "sqlite"
     DATABASE_URL: str = "sqlite+aiosqlite:///./codeseer.db"
+    MYSQL_HOST: str = "127.0.0.1"
+    MYSQL_PORT: int = 3306
+    MYSQL_USER: str = "root"
+    MYSQL_PASSWORD: str = "ljb0916@"
+    MYSQL_DATABASE: str = "codeseer"
 
     # JWT
     SECRET_KEY: str = "your-secret-key-change-in-production"

@@ -65,6 +65,11 @@
     <main class="main-content">
       <header class="topbar">
         <div class="topbar-left">
+          <div class="project-switcher" @click="goToProjectSelect">
+            <el-icon><Folder /></el-icon>
+            <span>{{ projectStore.currentProject?.name || '选择项目' }}</span>
+            <el-icon><ArrowDown /></el-icon>
+          </div>
           <span class="topbar-title">{{ pageTitle }}</span>
           <template v-if="parentName && tabs.length > 0">
             <span class="topbar-sep">/</span>
@@ -104,21 +109,27 @@
 import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useProjectStore } from '@/stores/project'
 import {
   Folder, Timer, Document, DataLine, Calendar,
   Grid, Files, Connection, User, Setting,
-  Fold, Expand, WarnTriangleFilled
+  Fold, Expand, WarnTriangleFilled, ArrowDown
 } from '@element-plus/icons-vue'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const projectStore = useProjectStore()
 
 const sidebarCollapsed = ref(false)
 const currentRoute = computed(() => route.path)
 
 const toggleSidebar = () => {
   sidebarCollapsed.value = !sidebarCollapsed.value
+}
+
+function goToProjectSelect() {
+  router.push('/projects/select')
 }
 
 const tabs = computed(() => {
@@ -327,6 +338,20 @@ const handleLogout = () => {
 .topbar-right {
   display: flex;
   align-items: center;
+}
+
+.project-switcher {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-right: 12px;
+}
+
+.project-switcher:hover {
+  background: rgba(0, 0, 0, 0.05);
 }
 
 .topbar-user {

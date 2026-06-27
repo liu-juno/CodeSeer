@@ -45,6 +45,19 @@ export const projectsApi = {
   update: (id: string, data: any) => api.put(`/projects/${id}`, data),
   delete: (id: string) => api.delete(`/projects/${id}`),
   statistics: (id: string) => api.get(`/projects/${id}/statistics`),
+  getMine: () => api.get('/projects/mine'),
+  listMembers: (projectId: string) => api.get(`/projects/${projectId}/members`),
+  addMember: (projectId: string, data: { user_id: string; role: string }) =>
+    api.post(`/projects/${projectId}/members`, data),
+  removeMember: (projectId: string, userId: string) =>
+    api.delete(`/projects/${projectId}/members/${userId}`),
+  updateMember: (projectId: string, userId: string, data: { role?: string; status?: string }) =>
+    api.patch(`/projects/${projectId}/members/${userId}`, data),
+  applyToProject: (projectId: string) => api.post(`/projects/${projectId}/apply`),
+  approveMember: (projectId: string, userId: string) =>
+    api.post(`/projects/${projectId}/approve/${userId}`),
+  rejectMember: (projectId: string, userId: string) =>
+    api.post(`/projects/${projectId}/reject/${userId}`),
 }
 
 // Iterations API

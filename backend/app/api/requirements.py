@@ -1,12 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, and_
 from typing import List, Optional
 from uuid import UUID
 from datetime import datetime
 from pydantic import BaseModel
 
 from app.core.database import get_db
+from app.core.auth import get_current_user
+from app.models.models import User
+from app.api.projects import check_project_member
 from app.models.models import (
     Requirement, RequirementPhase, RequirementHistory, HistoryAction, PhaseStatus, PhaseType,
 )
@@ -64,8 +67,12 @@ async def list_requirements(
     status: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    if project_id:
+        if not await check_project_member(str(project_id), current_user.id, db):
+            raise HTTPException(status_code=403, detail="无权限访问此项目")
     query = select(Requirement)
     count_query = select(func.count()).select_from(Requirement)
 
@@ -94,7 +101,10 @@ async def list_requirements(
 
 
 @router.post("", response_model=RequirementResponse)
-async def create_requirement(requirement: RequirementCreate, db: AsyncSession = Depends(get_db)):
+async def create_requirement(requirement: RequirementCreate, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    if requirement.project_id:
+        if not await check_project_member(str(requirement.project_id), current_user.id, db):
+            raise HTTPException(status_code=403, detail="无权限访问此项目")
     data = requirement.model_dump()
     data['project_id'] = str(data['project_id'])
     data['iteration_id'] = str(data['iteration_id']) if data.get('iteration_id') else None
@@ -139,22 +149,28 @@ async def list_requirements_by_iteration(iteration_id: UUID, db: AsyncSession = 
 
 
 @router.get("/{requirement_id}", response_model=RequirementResponse)
-async def get_requirement(requirement_id: UUID, db: AsyncSession = Depends(get_db)):
+async def get_requirement(requirement_id: UUID, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Requirement).where(Requirement.id == str(requirement_id)))
     requirement = result.scalar_one_or_none()
     if not requirement:
         raise HTTPException(status_code=404, detail="Requirement not found")
+    if requirement.project_id:
+        if not await check_project_member(requirement.project_id, current_user.id, db):
+            raise HTTPException(status_code=403, detail="无权限访问此项目")
     return requirement
 
 
 @router.put("/{requirement_id}", response_model=RequirementResponse)
 async def update_requirement(
-    requirement_id: UUID, requirement: RequirementUpdate, db: AsyncSession = Depends(get_db)
+    requirement_id: UUID, requirement: RequirementUpdate, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
 ):
     result = await db.execute(select(Requirement).where(Requirement.id == str(requirement_id)))
     db_requirement = result.scalar_one_or_none()
     if not db_requirement:
         raise HTTPException(status_code=404, detail="Requirement not found")
+    if db_requirement.project_id:
+        if not await check_project_member(db_requirement.project_id, current_user.id, db):
+            raise HTTPException(status_code=403, detail="无权限访问此项目")
     for key, value in requirement.model_dump(exclude_unset=True).items():
         setattr(db_requirement, key, value)
     await db.commit()
@@ -163,11 +179,14 @@ async def update_requirement(
 
 
 @router.delete("/{requirement_id}")
-async def delete_requirement(requirement_id: UUID, db: AsyncSession = Depends(get_db)):
+async def delete_requirement(requirement_id: UUID, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Requirement).where(Requirement.id == str(requirement_id)))
     requirement = result.scalar_one_or_none()
     if not requirement:
         raise HTTPException(status_code=404, detail="Requirement not found")
+    if requirement.project_id:
+        if not await check_project_member(requirement.project_id, current_user.id, db):
+            raise HTTPException(status_code=403, detail="无权限访问此项目")
     await db.delete(requirement)
     await db.commit()
     return {"message": "Requirement deleted successfully"}

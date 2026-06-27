@@ -6,9 +6,11 @@ from uuid import UUID
 from datetime import datetime
 
 from app.core.database import get_db
-from app.models.models import Iteration, Requirement
+from app.core.auth import get_current_user
+from app.models.models import Iteration, Requirement, User
 from app.schemas.schemas import IterationCreate, IterationUpdate, IterationResponse, PaginatedResponse
 from app.api.documents import archive_requirement_drafts
+from app.api.projects import check_project_member
 
 router = APIRouter(prefix="/iterations", tags=["iterations"])
 
@@ -35,7 +37,10 @@ async def list_iterations(
 
 
 @router.post("", response_model=IterationResponse)
-async def create_iteration(iteration: IterationCreate, db: AsyncSession = Depends(get_db)):
+async def create_iteration(iteration: IterationCreate, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    if iteration.project_id:
+        if not await check_project_member(str(iteration.project_id), current_user.id, db):
+            raise HTTPException(status_code=403, detail="无权限访问此项目")
     data = iteration.model_dump()
     data['project_id'] = str(data['project_id'])
     db_iteration = Iteration(**data)
@@ -46,7 +51,9 @@ async def create_iteration(iteration: IterationCreate, db: AsyncSession = Depend
 
 
 @router.get("/by-project/{project_id}", response_model=List[IterationResponse])
-async def list_iterations_by_project(project_id: UUID, db: AsyncSession = Depends(get_db)):
+async def list_iterations_by_project(project_id: UUID, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    if not await check_project_member(str(project_id), current_user.id, db):
+        raise HTTPException(status_code=403, detail="无权限访问此项目")
     result = await db.execute(
         select(Iteration)
         .where(Iteration.project_id == project_id)
@@ -56,20 +63,26 @@ async def list_iterations_by_project(project_id: UUID, db: AsyncSession = Depend
 
 
 @router.get("/{iteration_id}", response_model=IterationResponse)
-async def get_iteration(iteration_id: UUID, db: AsyncSession = Depends(get_db)):
+async def get_iteration(iteration_id: UUID, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Iteration).where(Iteration.id == iteration_id))
     iteration = result.scalar_one_or_none()
     if not iteration:
         raise HTTPException(status_code=404, detail="Iteration not found")
+    if iteration.project_id:
+        if not await check_project_member(str(iteration.project_id), current_user.id, db):
+            raise HTTPException(status_code=403, detail="无权限访问此项目")
     return iteration
 
 
 @router.put("/{iteration_id}", response_model=IterationResponse)
-async def update_iteration(iteration_id: UUID, iteration: IterationUpdate, db: AsyncSession = Depends(get_db)):
+async def update_iteration(iteration_id: UUID, iteration: IterationUpdate, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Iteration).where(Iteration.id == iteration_id))
     db_iteration = result.scalar_one_or_none()
     if not db_iteration:
         raise HTTPException(status_code=404, detail="Iteration not found")
+    if db_iteration.project_id:
+        if not await check_project_member(str(db_iteration.project_id), current_user.id, db):
+            raise HTTPException(status_code=403, detail="无权限访问此项目")
 
     update_data = iteration.model_dump(exclude_unset=True)
     for key, value in update_data.items():
@@ -81,11 +94,14 @@ async def update_iteration(iteration_id: UUID, iteration: IterationUpdate, db: A
 
 
 @router.delete("/{iteration_id}")
-async def delete_iteration(iteration_id: UUID, db: AsyncSession = Depends(get_db)):
+async def delete_iteration(iteration_id: UUID, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Iteration).where(Iteration.id == iteration_id))
     iteration = result.scalar_one_or_none()
     if not iteration:
         raise HTTPException(status_code=404, detail="Iteration not found")
+    if iteration.project_id:
+        if not await check_project_member(str(iteration.project_id), current_user.id, db):
+            raise HTTPException(status_code=403, detail="无权限访问此项目")
 
     await db.delete(iteration)
     await db.commit()

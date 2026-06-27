@@ -1,10 +1,12 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useProjectStore } from '@/stores/project'
 
 const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: '/login', name: 'login', component: () => import('@/views/Login.vue'), meta: { public: true } },
+    { path: '/projects/select', name: 'project-select', component: () => import('@/views/ProjectSelect.vue'), meta: { public: true } },
     {
       path: '/',
       component: () => import('@/components/Layout.vue'),
@@ -38,12 +40,25 @@ const router = createRouter({
   ],
 })
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   if (to.meta.public) return true
+
   const auth = useAuthStore()
   if (!auth.isLoggedIn) {
     return { name: 'login' }
   }
+
+  const noProjectRoutes = ['project-select', 'login', 'register']
+  if (noProjectRoutes.includes(to.name as string)) return true
+
+  const projectStore = useProjectStore()
+  projectStore.initFromStorage()
+
+  if (!projectStore.currentProjectId) {
+    return { name: 'project-select' }
+  }
+
+  return true
 })
 
 export default router

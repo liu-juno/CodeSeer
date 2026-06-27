@@ -16,6 +16,7 @@ const router = createRouter({
         { path: 'iterations', name: 'iterations', component: () => import('@/views/Iterations.vue') },
         { path: 'requirements', name: 'requirements', component: () => import('@/views/Requirements.vue') },
         { path: 'project/:id', name: 'project-detail', component: () => import('@/views/ProjectDetail.vue') },
+        { path: 'project/:id/settings', name: 'project-settings', component: () => import('@/views/ProjectSettings.vue') },
         { path: 'iteration/:id', name: 'iteration-detail', component: () => import('@/views/IterationDetail.vue') },
         { path: 'requirement/:id', name: 'requirement-detail', component: () => import('@/views/RequirementDetail.vue') },
         { path: 'requirement/new', name: 'requirement-create', component: () => import('@/views/RequirementCreate.vue') },

@@ -10,13 +10,16 @@
         :key="project.id"
         :content="project.name"
         placement="right"
-        :show-after="300"
+        :show-after="500"
       >
         <div
-          :class="['project-icon', { active: project.id === currentProjectId }]"
+          :class="['project-item', { active: project.id === currentProjectId }]"
           @click="$emit('select-project', project)"
         >
-          {{ project.name.charAt(0).toUpperCase() }}
+          <div class="project-avatar" :style="{ background: projectColor(project.name) }">
+            {{ abbreviation(project.name) }}
+          </div>
+          <span class="project-label">{{ project.name }}</span>
         </div>
       </el-tooltip>
     </div>
@@ -39,6 +42,20 @@ defineEmits<{
   (e: 'select-project', project: any): void
   (e: 'create-project'): void
 }>()
+
+const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#14b8a6']
+
+function projectColor(name: string): string {
+  let h = 0
+  for (const c of name) h = (h * 31 + c.charCodeAt(0)) & 0xffffffff
+  return COLORS[Math.abs(h) % COLORS.length]
+}
+
+function abbreviation(name: string): string {
+  const caps = name.match(/[A-Z]/g)
+  if (caps && caps.length >= 2) return caps.slice(0, 2).join('')
+  return name.slice(0, 2)
+}
 </script>
 
 <style scoped>
@@ -48,13 +65,12 @@ defineEmits<{
   border-right: 1px solid var(--border-default);
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   flex-shrink: 0;
   overflow: hidden;
 }
 
 .rail-logo {
-  width: 100%;
   height: var(--topbar-height);
   display: flex;
   align-items: center;
@@ -75,41 +91,72 @@ defineEmits<{
   flex: 1;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 0;
+  gap: 0.25rem;
+  padding: 0.5rem 0;
   overflow-y: auto;
   overflow-x: hidden;
-  width: 100%;
 }
 
-.project-icon {
-  width: 2rem;
-  height: 2rem;
-  border-radius: 0.5rem;
-  background: var(--bg-hover);
-  color: var(--text-secondary);
+.project-item {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  font-size: 0.8125rem;
-  font-weight: 600;
+  gap: 0.25rem;
+  padding: 0.5rem 0.375rem;
   cursor: pointer;
-  flex-shrink: 0;
-  transition: background 0.15s, color 0.15s;
+  border-left: 3px solid transparent;
+  transition: background 0.15s, border-color 0.15s;
   user-select: none;
 }
 
-.project-icon:hover,
-.project-icon.active {
-  background: var(--color-primary);
+.project-item:hover {
+  background: var(--bg-hover);
+}
+
+.project-item.active {
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  border-left-color: var(--color-primary);
+}
+
+.project-avatar {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.5rem;
   color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  transition: box-shadow 0.15s;
+}
+
+.project-item.active .project-avatar {
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--color-primary);
+}
+
+.project-label {
+  font-size: 0.625rem;
+  color: var(--text-secondary);
+  text-align: center;
+  line-height: 1.3;
+  word-break: break-all;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  width: 100%;
+}
+
+.project-item.active .project-label {
+  color: var(--color-primary);
+  font-weight: 500;
 }
 
 .rail-footer {
   padding: 0.75rem 0;
   border-top: 1px solid var(--border-default);
-  width: 100%;
   display: flex;
   justify-content: center;
   flex-shrink: 0;

@@ -38,6 +38,11 @@ TOOLS = [
         },
     },
     {
+        "name": "list_member_projects",
+        "description": "列出当前用户作为成员参与的所有项目（按项目成员资格，不依赖需求分配状态）",
+        "inputSchema": {"type": "object", "properties": {}, "required": []},
+    },
+    {
         "name": "list_skills_by_project",
         "description": "获取指定项目的所有 Skill",
         "inputSchema": {

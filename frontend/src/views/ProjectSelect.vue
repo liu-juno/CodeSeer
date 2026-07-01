@@ -29,13 +29,14 @@
             v-for="project in allProjects"
             :key="project.id"
             class="project-card"
+            @click="isMyProject(project.id) ? enterProject(project) : undefined"
           >
             <div class="project-icon">{{ project.name.charAt(0) }}</div>
             <div class="project-name">{{ project.name }}</div>
             <div class="project-desc">{{ project.description || '暂无描述' }}</div>
             <div class="project-actions">
               <template v-if="isMyProject(project.id)">
-                <el-button type="primary" size="small" @click="enterProject(project)">
+                <el-button type="primary" size="small" @click.stop="enterProject(project)">
                   进入
                 </el-button>
               </template>
@@ -43,7 +44,7 @@
                 <el-tag type="warning">待审核</el-tag>
               </template>
               <template v-else>
-                <el-button type="outline" size="small" @click="applyToProject(project)">
+                <el-button size="small" @click.stop="applyToProject(project)">
                   申请加入
                 </el-button>
               </template>

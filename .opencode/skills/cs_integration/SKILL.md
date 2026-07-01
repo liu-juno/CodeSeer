@@ -5,6 +5,20 @@ description: "Use ONLY when user explicitly says they want to START DEVELOPMENT 
 
 # CodeSeer Integration Skill
 
+## 文件保存路径规则（强制覆盖 superpowers 默认路径）
+
+> ⚠️ **在本项目中，所有 brainstorming 和 writing-plans 产出必须保存到 `docs/cs/` 目录，禁止写入 `docs/superpowers/`。**
+
+路径格式：
+```
+docs/cs/<项目标识符>/<迭代名>/<需求名>/specs/   ← brainstorming 产出
+docs/cs/<项目标识符>/<迭代名>/<需求名>/plans/   ← writing-plans 产出
+```
+
+- `<项目标识符>` / `<迭代名>` / `<需求名>` 从 `start_brainstorming` 返回值中获取
+- superpowers brainstorming 和 writing-plans 技能会询问保存路径，**必须手动指定上述路径**，而不是接受它们的默认路径（`docs/superpowers/`）
+- 如果当前没有激活的需求上下文（未调用 `start_brainstorming`），**禁止直接运行 brainstorming 或 writing-plans**，应先执行 `/cs_start` 选择需求
+
 ## TDD 强制规则
 
 > ⚠️ **本技能的所有开发任务强制使用 TDD（测试驱动开发）。**
@@ -70,14 +84,14 @@ brainstorming 完成后调用 `superpowers:writing-plans`。
 
 ### 第 9 步：writing-plans 完成后自动同步（无需用户触发）
 
-writing-plans 将计划写入 `start_brainstorming` 返回的路径（`docs/cs/<迭代名>/<需求名>/plans/`）后，**立即按顺序执行**：
+writing-plans 将计划写入 `start_brainstorming` 返回的路径（`docs/cs/<项目标识符>/<迭代名>/<需求名>/plans/`）后，**立即按顺序执行**：
 
-**9a. 上传设计文档**（`docs/cs/<迭代名>/<需求名>/specs/` 下，brainstorming 产出）
+**9a. 上传设计文档**（`docs/cs/<项目标识符>/<迭代名>/<需求名>/specs/` 下，brainstorming 产出）
 ```
 create_document(requirement_id, title, content, document_type="design")
 ```
 
-**9b. 上传计划文档**（`docs/cs/<迭代名>/<需求名>/plans/` 下，writing-plans 产出）
+**9b. 上传计划文档**（`docs/cs/<项目标识符>/<迭代名>/<需求名>/plans/` 下，writing-plans 产出）
 ```
 create_document(requirement_id, title, content, document_type="analysis")
 ```

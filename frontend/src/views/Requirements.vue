@@ -111,17 +111,28 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { requirementsApi, iterationsApi, projectsApi, usersApi } from '@/api'
 import { usePagination } from '@/composables/usePagination'
+import { useProjectStore } from '@/stores/project'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 
+const projectStore = useProjectStore()
+
 const { items: requirements, total, page, pageSize, loading, fetchPage, onPageChange, onSizeChange } = usePagination(
   async (p, ps) => {
-    const res = await requirementsApi.list({ page: p, page_size: ps })
+    const params: any = { page: p, page_size: ps }
+    if (projectStore.currentProjectId) params.project_id = projectStore.currentProjectId
+    if (projectStore.currentIterationId) params.iteration_id = projectStore.currentIterationId
+    const res = await requirementsApi.list(params)
     return { items: res.data.items, total: res.data.total }
   }
+)
+
+watch(
+  [() => projectStore.currentProjectId, () => projectStore.currentIterationId],
+  () => fetchPage(1)
 )
 
 const iterations = ref<any[]>([])
@@ -167,12 +178,14 @@ const formatDate = (d: string) => new Date(d).toLocaleDateString('zh-CN')
 
 const fetchData = async () => {
   try {
-    const [iterRes, projRes, usrRes] = await Promise.all([
-      iterationsApi.list(), projectsApi.list(), usersApi.list(),
+    const [iterRes, usrRes] = await Promise.all([
+      projectStore.currentProjectId
+        ? iterationsApi.byProject(projectStore.currentProjectId)
+        : Promise.resolve({ data: [] }),
+      usersApi.list(),
     ])
     users.value = usrRes.data
-    iterations.value = iterRes.data.items
-    projects.value = projRes.data.items
+    iterations.value = Array.isArray(iterRes.data) ? iterRes.data : (iterRes.data.items ?? [])
   } catch (e) { console.error(e) }
   fetchPage(1)
 }

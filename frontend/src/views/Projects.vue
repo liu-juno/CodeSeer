@@ -113,8 +113,11 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { projectsApi } from '@/api'
 import { usePagination } from '@/composables/usePagination'
+import { useProjectStore } from '@/stores/project'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
+
+const projectStore = useProjectStore()
 
 const { items, total, page, pageSize, loading, fetchPage, onPageChange, onSizeChange } = usePagination(
   async (p, ps) => {
@@ -186,6 +189,7 @@ const createProject = async () => {
     showCreateModal.value = false
     ElMessage.success('创建成功')
     fetchPage(page.value)
+    projectStore.fetchMyProjects()
   } catch (e: any) {
     if (e?.response?.status === 409) identifierError.value = '该标识符已被其他项目使用'
     else console.error(e)

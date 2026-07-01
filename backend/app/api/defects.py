@@ -38,6 +38,7 @@ async def create_defect(data: DefectCreate, current_user: User = Depends(get_cur
 @router.get("", response_model=List[DefectResponse])
 async def list_defects(
     project_id: Optional[str] = None,
+    iteration_id: Optional[str] = None,
     status: Optional[DefectStatus] = None,
     severity: Optional[str] = None,
     priority: Optional[str] = None,
@@ -55,6 +56,8 @@ async def list_defects(
 
     if project_id:
         query = query.where(Defect.project_id == project_id)
+    if iteration_id:
+        query = query.where(Defect.iteration_id == iteration_id)
     if status:
         query = query.where(Defect.status == status)
     if severity:

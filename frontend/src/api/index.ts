@@ -116,6 +116,8 @@ export const documentsApi = {
   archive: (id: string) => api.post(`/documents/${id}/archive`),
   process: (id: string) => api.post(`/documents/${id}/process`),
   versions: (id: string) => api.get(`/documents/${id}/versions`),
+  merge: (data: { title: string; source_document_ids: string[]; module_id?: string }) =>
+    api.post('/documents/merge', data),
 }
 
 // Modules API
@@ -127,7 +129,9 @@ export const modulesApi = {
   delete: (id: string) => api.delete(`/modules/${id}`),
   documents: (id: string) => api.get(`/modules/${id}/documents`),
   knowledge: (id: string) => api.get(`/modules/${id}/knowledge`),
-  generateSkill: (id: string, data: { name: string; description?: string; document_ids: string[] }) => api.post(`/modules/${id}/generate-skill`, data),
+  projectDocuments: (id: string) => api.get(`/modules/${id}/project-documents`),
+  syncSkill: (id: string) => api.post(`/modules/${id}/sync-skill`),
+  updateSkillMeta: (id: string, data: { name?: string; description?: string }) => api.patch(`/modules/${id}/skill`, data),
   deleteSkill: (id: string) => api.delete(`/modules/${id}/skill`),
 }
 
@@ -151,7 +155,7 @@ export const usersApi = {
   rolePermissions: () => api.get('/users/roles/permissions'),
 }
 
-// Config API (state machine + custom fields)
+// Config API (state machine + custom fields + env)
 export const configApi = {
   stateMachine: () => api.get('/config/state-machine'),
   updateStateMachine: (states: any[]) => api.put('/config/state-machine', states),
@@ -160,6 +164,8 @@ export const configApi = {
   updateCustomField: (id: string, data: any) => api.put(`/config/custom-fields/${id}`, data),
   deleteCustomField: (id: string) => api.delete(`/config/custom-fields/${id}`),
   requirementStatusConfig: () => api.get('/requirements/status-config'),
+  envConfig: () => api.get('/config/env'),
+  updateEnvConfig: (data: any) => api.put('/config/env', data),
 }
 
 // MCP Tokens API

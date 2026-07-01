@@ -348,6 +348,32 @@ async def update_phase(requirement_id: UUID, phase_id: UUID, body: PhaseUpdate, 
         comment=body.notes,
     )
     db.add(history)
+
+    # 所有阶段都完成时自动将需求状态推进为 completed
+    if body.status == "completed":
+        all_phases = (await db.execute(
+            select(RequirementPhase)
+            .where(RequirementPhase.requirement_id == str(requirement_id))
+        )).scalars().all()
+        all_done = all(
+            (ph.status.value if hasattr(ph.status, 'value') else ph.status) == "completed"
+            for ph in all_phases
+        )
+        if all_done:
+            req = (await db.execute(
+                select(Requirement).where(Requirement.id == str(requirement_id))
+            )).scalar_one_or_none()
+            if req and (req.status.value if hasattr(req.status, 'value') else req.status) != "completed":
+                old_req_status = req.status.value if hasattr(req.status, 'value') else str(req.status)
+                req.status = "completed"
+                db.add(RequirementHistory(
+                    requirement_id=str(requirement_id),
+                    action=HistoryAction.STATUS_CHANGED,
+                    old_value=old_req_status,
+                    new_value="completed",
+                    comment="所有阶段完成，自动标记需求为已完成",
+                ))
+
     await db.commit()
     return {
         "id": p.id,

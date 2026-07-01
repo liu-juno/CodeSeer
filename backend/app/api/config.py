@@ -1,4 +1,7 @@
 import json
+import os
+import re
+import shutil
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -154,3 +157,112 @@ async def delete_custom_field(field_id: str, db: AsyncSession = Depends(get_db))
     await db.delete(field)
     await db.commit()
     return {"message": "字段已删除"}
+
+
+# ── .env 配置管理 ──────────────────────────────────────────────────────────────
+
+ENV_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".env")
+ENV_SAMPLE = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".env.example")
+
+
+# 允许通过后台管理的配置项
+MANAGED_KEYS = [
+    # AI / LLM
+    "LLM_PROVIDER", "LLM_BASE_URL", "LLM_API_KEY", "LLM_MODEL", "LLM_MAX_TOKENS", "LLM_TEMPERATURE",
+    # Storage
+    "STORAGE_TYPE", "FTP_HOST", "FTP_PORT", "FTP_USERNAME", "FTP_PASSWORD", "FTP_REMOTE_BASE_PATH",
+    "OSS_ENDPOINT", "OSS_ACCESS_KEY_ID", "OSS_ACCESS_KEY_SECRET", "OSS_BUCKET_NAME",
+    # 其他可运行时修改的
+    "ACCESS_TOKEN_EXPIRY_DAYS",
+]
+
+# 敏感字段，写入时脱敏显示
+SENSITIVE_KEYS = {"LLM_API_KEY", "FTP_PASSWORD", "OSS_ACCESS_KEY_SECRET"}
+
+
+def _read_env() -> dict:
+    """读取 .env 文件为 key-value dict"""
+    vars_ = {}
+    if os.path.exists(ENV_PATH):
+        with open(ENV_PATH) as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, _, v = line.partition("=")
+                vars_[k.strip()] = v.strip().strip('"').strip("'")
+    return vars_
+
+
+def _write_env(vars_: dict):
+    """写入 .env 文件"""
+    lines = [f'{k}="{v}"' if v else f"{k}=" for k, v in vars_.items()]
+    with open(ENV_PATH, "w") as f:
+        f.write("\n".join(lines) + "\n")
+
+
+@router.get("/env")
+async def get_env_config():
+    """获取所有配置项（敏感字段脱敏）"""
+    vars_ = _read_env()
+    result = {}
+    for k in MANAGED_KEYS:
+        v = vars_.get(k, "")
+        if k in SENSITIVE_KEYS and v and "****" not in v:
+            v = v[:6] + "****" + v[-4:] if len(v) > 10 else "****"
+        result[k] = v
+    return result
+
+
+class EnvConfigUpdate(BaseModel):
+    # 支持部分更新
+    LLM_PROVIDER: Optional[str] = None
+    LLM_BASE_URL: Optional[str] = None
+    LLM_API_KEY: Optional[str] = None
+    LLM_MODEL: Optional[str] = None
+    LLM_MAX_TOKENS: Optional[int] = None
+    LLM_TEMPERATURE: Optional[float] = None
+    STORAGE_TYPE: Optional[str] = None
+    FTP_HOST: Optional[str] = None
+    FTP_PORT: Optional[int] = None
+    FTP_USERNAME: Optional[str] = None
+    FTP_PASSWORD: Optional[str] = None
+    FTP_REMOTE_BASE_PATH: Optional[str] = None
+    OSS_ENDPOINT: Optional[str] = None
+    OSS_ACCESS_KEY_ID: Optional[str] = None
+    OSS_ACCESS_KEY_SECRET: Optional[str] = None
+    OSS_BUCKET_NAME: Optional[str] = None
+    ACCESS_TOKEN_EXPIRY_DAYS: Optional[int] = None
+
+
+@router.put("/env")
+async def update_env_config(body: EnvConfigUpdate):
+    """更新配置项（写入 .env）"""
+    vars_ = _read_env()
+    data = body.model_dump(exclude_unset=True)
+
+    for k, v in data.items():
+        # 忽略脱敏占位符
+        if k in SENSITIVE_KEYS and isinstance(v, str) and "****" in v:
+            continue
+        vars_[k] = str(v) if v is not None else ""
+
+    _write_env(vars_)
+
+    # 同步到运行时 settings
+    from app.core.config import settings
+    mapping = {
+        "LLM_PROVIDER": "LLM_PROVIDER", "LLM_BASE_URL": "LLM_BASE_URL",
+        "LLM_API_KEY": "LLM_API_KEY", "LLM_MODEL": "LLM_MODEL",
+        "LLM_MAX_TOKENS": "LLM_MAX_TOKENS", "LLM_TEMPERATURE": "LLM_TEMPERATURE",
+        "STORAGE_TYPE": "STORAGE_TYPE", "FTP_HOST": "FTP_HOST", "FTP_PORT": "FTP_PORT",
+        "FTP_USERNAME": "FTP_USERNAME", "FTP_PASSWORD": "FTP_PASSWORD",
+        "FTP_REMOTE_BASE_PATH": "FTP_REMOTE_BASE_PATH", "OSS_ENDPOINT": "OSS_ENDPOINT",
+        "OSS_ACCESS_KEY_ID": "OSS_ACCESS_KEY_ID", "OSS_ACCESS_KEY_SECRET": "OSS_ACCESS_KEY_SECRET",
+        "OSS_BUCKET_NAME": "OSS_BUCKET_NAME", "ACCESS_TOKEN_EXPIRY_DAYS": "ACCESS_TOKEN_EXPIRY_DAYS",
+    }
+    for env_key, setting_key in mapping.items():
+        if env_key in data:
+            setattr(settings, setting_key, data[env_key])
+
+    return await get_env_config()

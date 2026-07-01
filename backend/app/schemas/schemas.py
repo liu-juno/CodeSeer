@@ -90,6 +90,7 @@ class ProjectResponse(ProjectBase):
     created_by: Optional[UUID] = None
     created_at: datetime
     updated_at: datetime
+    my_role: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -290,6 +291,7 @@ class DocumentBase(BaseModel):
 
 class DocumentCreate(DocumentBase):
     requirement_id: Optional[str] = None
+    source_document_ids: Optional[List[str]] = None  # 合并来源文档 ID 列表
 
 
 class DocumentUpdate(BaseModel):
@@ -297,6 +299,8 @@ class DocumentUpdate(BaseModel):
     content: Optional[str] = None
     document_type: Optional[str] = None
     module_id: Optional[str] = None
+    change_note: Optional[str] = None
+    source_document_ids: Optional[List[str]] = None
 
 
 class DocumentResponse(DocumentBase):
@@ -311,6 +315,14 @@ class DocumentResponse(DocumentBase):
     created_at: datetime
     updated_at: datetime
     archived_at: Optional[datetime] = None
+    source_document_ids: Optional[List[str]] = None
+
+    @field_validator('source_document_ids', mode='before')
+    @classmethod
+    def parse_source_ids(cls, v):
+        if isinstance(v, str):
+            return json.loads(v)
+        return v
 
     class Config:
         from_attributes = True

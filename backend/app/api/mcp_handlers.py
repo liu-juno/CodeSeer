@@ -7,8 +7,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.models import (
-    Document, Iteration, Module, Project, Requirement, RequirementAttachment, RequirementPhase,
-    RequirementStatus, PhaseType, PhaseStatus, Skill, Task, TestResult, UnitTestRecord,
+    Document, Iteration, Module, Project, ProjectMember, Requirement, RequirementAttachment, RequirementPhase,
+    RequirementStatus, PhaseType, PhaseStatus, Skill, Task, TestResult, UnitTestRecord, UserRole,
 )
 from app.api.mcp_tools import ACTIVE_STATUSES, TRANSITIONS
 
@@ -497,6 +497,35 @@ async def _get_document(args: dict, user, db: AsyncSession) -> dict:
     return _text(body)
 
 
+async def _list_member_projects(args: dict, user, db: AsyncSession) -> dict:
+    """按项目成员资格列出用户所属项目，不依赖需求分配状态"""
+    if user.role == UserRole.ADMIN:
+        result = await db.execute(select(Project).order_by(Project.name))
+        projects = result.scalars().all()
+    else:
+        result = await db.execute(
+            select(Project)
+            .join(ProjectMember, ProjectMember.project_id == Project.id)
+            .where(
+                ProjectMember.user_id == str(user.id),
+                ProjectMember.status == "approved",
+            )
+            .order_by(Project.name)
+        )
+        projects = result.scalars().all()
+
+    if not projects:
+        return _text("当前没有找到与你关联的项目。请确认：\n1. 已在 CodeSeer 平台创建/加入项目\n2. 或需要先运行 /cs_setup 初始化\n是否先运行初始化命令？")
+
+    lines = [
+        f"- {p.name}"
+        + (f" [{p.identifier}]" if p.identifier else "")
+        + f" (id={p.id})"
+        for p in projects
+    ]
+    return _text("你参与的项目：\n" + "\n".join(lines))
+
+
 async def _list_skills_by_project(args: dict, user, db: AsyncSession) -> dict:
     project_id = args.get("project_id", "").strip()
     if not project_id:
@@ -559,6 +588,7 @@ async def _setup_dev_environment(args: dict, user, db: AsyncSession) -> dict:
     start_cmd_content = _read_cmd("cs_start")
     cs_doc_content = _read_cmd("cs_doc")
     cs_skill_content = _read_cmd("cs_skill")
+    cs_sync_brd_content = _read_cmd("cs_sync_brd")
 
     sections = ["## CodeSeer 开发环境安装指南\n"]
     sections.append(
@@ -584,6 +614,7 @@ async def _setup_dev_environment(args: dict, user, db: AsyncSession) -> dict:
             f"将【cs_start 命令文件】写入 `$PROJECT_ROOT/{cmd_dir}/cs_start.md`\n"
             f"将【cs_doc 命令文件】写入 `$PROJECT_ROOT/{cmd_dir}/cs_doc.md`\n"
             f"将【cs_skill 命令文件】写入 `$PROJECT_ROOT/{cmd_dir}/cs_skill.md`\n"
+            f"将【cs_sync_brd 命令文件】写入 `$PROJECT_ROOT/{cmd_dir}/cs_sync_brd.md`\n"
             f"（目录不存在时先 mkdir -p，文件已存在则覆盖）\n"
         )
 
@@ -595,6 +626,7 @@ async def _setup_dev_environment(args: dict, user, db: AsyncSession) -> dict:
             {"type": "text", "text": f"【cs_start 命令文件】\n\n{start_cmd_content}"},
             {"type": "text", "text": f"【cs_doc 命令文件】\n\n{cs_doc_content}"},
             {"type": "text", "text": f"【cs_skill 命令文件】\n\n{cs_skill_content}"},
+            {"type": "text", "text": f"【cs_sync_brd 命令文件】\n\n{cs_sync_brd_content}"},
         ]
     }
 
@@ -673,6 +705,7 @@ TOOL_HANDLERS = {
     "update_requirement_status": _update_requirement_status,
     "create_document": _create_document,
     "get_document": _get_document,
+    "list_member_projects": _list_member_projects,
     "list_skills_by_project": _list_skills_by_project,
     "setup_dev_environment": _setup_dev_environment,
     "download_attachment": _download_attachment,

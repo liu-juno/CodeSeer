@@ -46,6 +46,9 @@ router.beforeEach(async (to) => {
 
   const auth = useAuthStore()
   if (!auth.isLoggedIn) {
+    await auth.initFromStorage()
+  }
+  if (!auth.isLoggedIn) {
     return { name: 'login' }
   }
 

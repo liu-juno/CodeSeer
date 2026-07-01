@@ -16,34 +16,83 @@ router = APIRouter(prefix="/projects", tags=["projects"])
 async def list_projects(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    count_result = await db.execute(select(func.count()).select_from(Project))
-    total = count_result.scalar() or 0
+    # 全局管理员可见全部项目，普通用户只能看到自己参与的项目
+    from app.models.models import UserRole
+    if current_user.role == UserRole.ADMIN:
+        count_q = select(func.count()).select_from(Project)
+        data_q = select(Project).order_by(Project.created_at.desc())
+    else:
+        count_q = (
+            select(func.count()).select_from(Project)
+            .join(ProjectMember, and_(
+                ProjectMember.project_id == Project.id,
+                ProjectMember.user_id == current_user.id,
+                ProjectMember.status == "approved",
+            ))
+        )
+        data_q = (
+            select(Project)
+            .join(ProjectMember, and_(
+                ProjectMember.project_id == Project.id,
+                ProjectMember.user_id == current_user.id,
+                ProjectMember.status == "approved",
+            ))
+            .order_by(Project.created_at.desc())
+        )
 
+    total = (await db.execute(count_q)).scalar() or 0
     offset = (page - 1) * page_size
-    result = await db.execute(
-        select(Project)
-        .order_by(Project.created_at.desc())
-        .offset(offset)
-        .limit(page_size)
-    )
-    items = result.scalars().all()
+    items = (await db.execute(data_q.offset(offset).limit(page_size))).scalars().all()
 
     return PaginatedResponse(items=items, total=total, page=page, page_size=page_size)
 
 
 @router.post("", response_model=ProjectResponse)
-async def create_project(project: ProjectCreate, db: AsyncSession = Depends(get_db)):
+async def create_project(
+    project: ProjectCreate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
     if project.identifier:
         existing = await db.execute(select(Project).where(Project.identifier == project.identifier))
         if existing.scalar_one_or_none():
             raise HTTPException(status_code=409, detail=f"标识符 '{project.identifier}' 已被使用")
     db_project = Project(**project.model_dump())
     db.add(db_project)
+    await db.flush()
+    creator_member = ProjectMember(
+        project_id=str(db_project.id),
+        user_id=str(current_user.id),
+        role="admin",
+        status="approved",
+    )
+    db.add(creator_member)
     await db.commit()
     await db.refresh(db_project)
     return db_project
+
+
+@router.get("/mine", response_model=List[ProjectResponse])
+async def get_my_projects(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """获取当前用户参与的所有项目，附带用户在每个项目中的角色"""
+    result = await db.execute(
+        select(Project, ProjectMember.role)
+        .join(ProjectMember, and_(
+            ProjectMember.project_id == Project.id,
+            ProjectMember.user_id == current_user.id,
+            ProjectMember.status == "approved",
+        ))
+    )
+    rows = result.all()
+    out = []
+    for project, role in rows:
+        data = ProjectResponse.model_validate(project)
+        data.my_role = role
+        out.append(data)
+    return out
 
 
 @router.get("/{project_id}", response_model=ProjectResponse)
@@ -173,7 +222,7 @@ async def check_project_member(project_id: str, user_id: str, db: AsyncSession) 
     return result.scalar_one_or_none() is not None
 
 
-@router.get("/projects/{project_id}/members", response_model=List[ProjectMemberResponse])
+@router.get("/{project_id}/members", response_model=List[ProjectMemberResponse])
 async def list_project_members(project_id: str, db: AsyncSession = Depends(get_db)):
     """列出项目所有成员"""
     result = await db.execute(
@@ -198,7 +247,7 @@ async def list_project_members(project_id: str, db: AsyncSession = Depends(get_d
         ))
     return response
 
-@router.post("/projects/{project_id}/members", response_model=ProjectMemberResponse)
+@router.post("/{project_id}/members", response_model=ProjectMemberResponse)
 async def add_project_member(project_id: str, member: ProjectMemberCreate, db: AsyncSession = Depends(get_db)):
     """管理员添加项目成员（直接成为 approved）"""
     user_result = await db.execute(select(User).where(User.id == member.user_id))
@@ -237,7 +286,7 @@ async def add_project_member(project_id: str, member: ProjectMemberCreate, db: A
         user_email=user.email
     )
 
-@router.delete("/projects/{project_id}/members/{user_id}")
+@router.delete("/{project_id}/members/{user_id}")
 async def remove_project_member(project_id: str, user_id: str, db: AsyncSession = Depends(get_db)):
     """管理员移除项目成员"""
     result = await db.execute(
@@ -252,7 +301,7 @@ async def remove_project_member(project_id: str, user_id: str, db: AsyncSession 
     await db.commit()
     return {"message": "成员已移除"}
 
-@router.patch("/projects/{project_id}/members/{user_id}", response_model=ProjectMemberResponse)
+@router.patch("/{project_id}/members/{user_id}", response_model=ProjectMemberResponse)
 async def update_project_member(project_id: str, user_id: str, update: ProjectMemberUpdate, db: AsyncSession = Depends(get_db)):
     """更新项目成员角色或状态"""
     result = await db.execute(
@@ -280,7 +329,7 @@ async def update_project_member(project_id: str, user_id: str, update: ProjectMe
         updated_at=member.updated_at
     )
 
-@router.post("/projects/{project_id}/apply", response_model=ProjectMemberResponse)
+@router.post("/{project_id}/apply", response_model=ProjectMemberResponse)
 async def apply_to_project(project_id: str, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """用户申请加入项目"""
     project_result = await db.execute(select(Project).where(Project.id == project_id))
@@ -317,7 +366,7 @@ async def apply_to_project(project_id: str, current_user: User = Depends(get_cur
         user_email=current_user.email
     )
 
-@router.post("/projects/{project_id}/approve/{user_id}", response_model=ProjectMemberResponse)
+@router.post("/{project_id}/approve/{user_id}", response_model=ProjectMemberResponse)
 async def approve_project_member(project_id: str, user_id: str, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """项目创建人或管理员批准申请"""
     if not await check_project_admin(project_id, current_user.id, db):
@@ -345,7 +394,7 @@ async def approve_project_member(project_id: str, user_id: str, current_user: Us
         updated_at=member.updated_at
     )
 
-@router.post("/projects/{project_id}/reject/{user_id}")
+@router.post("/{project_id}/reject/{user_id}")
 async def reject_project_member(project_id: str, user_id: str, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """项目创建人或管理员拒绝申请"""
     if not await check_project_admin(project_id, current_user.id, db):
@@ -362,12 +411,3 @@ async def reject_project_member(project_id: str, user_id: str, current_user: Use
     await db.delete(member)
     await db.commit()
     return {"message": "已拒绝申请"}
-
-@router.get("/projects/mine", response_model=List[ProjectResponse])
-async def get_my_projects(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    """获取当前用户参与的所有项目"""
-    result = await db.execute(
-        select(Project).join(ProjectMember).where(ProjectMember.user_id == current_user.id)
-    )
-    projects = result.scalars().all()
-    return [ProjectResponse.model_validate(p) for p in projects]

@@ -28,6 +28,14 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRY_DAYS: int = 30
     ACCESS_TOKEN_LENGTH: int = 32
 
+    # LLM (AI) Configuration for document merge
+    LLM_PROVIDER: str = "openai"  # "openai" / "anthropic" / "ollama"
+    LLM_BASE_URL: str = "https://api.openai.com/v1"
+    LLM_API_KEY: str = ""
+    LLM_MODEL: str = "gpt-4o-mini"
+    LLM_MAX_TOKENS: int = 8192
+    LLM_TEMPERATURE: float = 0.3
+
     # Storage backend type: ftp / oss
     STORAGE_TYPE: str = "ftp"
 

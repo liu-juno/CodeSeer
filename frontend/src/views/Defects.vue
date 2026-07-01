@@ -2,38 +2,46 @@
   <div class="defects-page">
     <div class="page-header"></div>
 
-    <div class="filters-bar mb-16">
-      <el-select v-model="filter.project_id" placeholder="全部项目" style="width:160px;" clearable @change="fetchData">
-        <el-option v-for="p in projects" :key="p.id" :label="p.name" :value="p.id" />
-      </el-select>
-      <el-select v-model="filter.status" placeholder="全部状态" style="width:130px;" clearable @change="fetchData">
-        <el-option value="new" label="新建" />
-        <el-option value="confirmed" label="待确认" />
-        <el-option value="fixing" label="修复中" />
-        <el-option value="verifying" label="待验证" />
-        <el-option value="closed" label="已关闭" />
-      </el-select>
-      <el-select v-model="filter.severity" placeholder="全部严重" style="width:120px;" clearable @change="fetchData">
-        <el-option value="fatal" label="致命" />
-        <el-option value="critical" label="严重" />
-        <el-option value="major" label="一般" />
-        <el-option value="minor" label="轻微" />
-      </el-select>
-      <el-select v-model="filter.priority" placeholder="全部优先级" style="width:120px;" clearable @change="fetchData">
-        <el-option value="p0" label="P0" />
-        <el-option value="p1" label="P1" />
-        <el-option value="p2" label="P2" />
-        <el-option value="p3" label="P3" />
-      </el-select>
-      <el-input v-model="filter.assignee" placeholder="负责人" style="width:120px;" clearable @change="fetchData" />
-      <el-input v-model="filter.creator_id" placeholder="创建人" style="width:120px;" clearable @change="fetchData" />
-      <el-select v-model="filter.module_id" placeholder="全部模块" style="width:160px;" clearable @change="fetchData">
-        <el-option v-for="m in flatModules" :key="m.id" :label="m.path + m.name" :value="m.id" />
-      </el-select>
-      <el-button type="primary" @click="$router.push('/defect/new')">
-        <el-icon><Plus /></el-icon> 新建缺陷
-      </el-button>
-      <div style="margin-left:auto;">
+    <div class="toolbar mb-16">
+      <div class="toolbar-filters">
+        <el-select v-model="filter.status" placeholder="全部状态" style="width:120px;" clearable @change="fetchData">
+          <el-option value="new" label="新建" />
+          <el-option value="confirmed" label="待确认" />
+          <el-option value="fixing" label="修复中" />
+          <el-option value="verifying" label="待验证" />
+          <el-option value="closed" label="已关闭" />
+        </el-select>
+        <el-select v-model="filter.severity" placeholder="全部严重" style="width:110px;" clearable @change="fetchData">
+          <el-option value="fatal" label="致命" />
+          <el-option value="critical" label="严重" />
+          <el-option value="major" label="一般" />
+          <el-option value="minor" label="轻微" />
+        </el-select>
+        <el-select v-model="filter.priority" placeholder="全部优先级" style="width:110px;" clearable @change="fetchData">
+          <el-option value="p0" label="P0" />
+          <el-option value="p1" label="P1" />
+          <el-option value="p2" label="P2" />
+          <el-option value="p3" label="P3" />
+        </el-select>
+        <el-input v-model="filter.assignee" placeholder="负责人" style="width:100px;" clearable @change="fetchData" />
+        <el-input v-model="filter.creator_id" placeholder="创建人" style="width:100px;" clearable @change="fetchData" />
+        <el-select v-model="filter.module_id" placeholder="全部模块" style="width:140px;" clearable @change="fetchData">
+          <el-option v-for="m in flatModules" :key="m.id" :label="m.path + m.name" :value="m.id" />
+        </el-select>
+      </div>
+      <div class="toolbar-actions">
+        <template v-if="viewMode === 'kanban'">
+          <span class="lane-label">泳道：</span>
+          <el-radio-group v-model="laneBy" size="small">
+            <el-radio-button value="status">状态</el-radio-button>
+            <el-radio-button value="priority">优先级</el-radio-button>
+            <el-radio-button value="severity">严重程度</el-radio-button>
+          </el-radio-group>
+          <el-divider direction="vertical" />
+        </template>
+        <el-button type="primary" @click="$router.push('/defects/new')">
+          <el-icon><Plus /></el-icon> 新建缺陷
+        </el-button>
         <el-radio-group v-model="viewMode">
           <el-radio-button value="kanban">看板</el-radio-button>
           <el-radio-button value="list">列表</el-radio-button>
@@ -43,14 +51,6 @@
 
     <!-- 看板视图 -->
     <div v-if="viewMode === 'kanban'" class="kanban-board">
-      <div class="kanban-header">
-        <span>泳道：</span>
-        <el-radio-group v-model="laneBy" size="small">
-          <el-radio-button value="status">状态</el-radio-button>
-          <el-radio-button value="priority">优先级</el-radio-button>
-          <el-radio-button value="severity">严重程度</el-radio-button>
-        </el-radio-group>
-      </div>
       <div class="kanban-lanes">
         <div v-for="lane in laneItems" :key="lane.key" class="kanban-lane">
           <div class="lane-title">{{ lane.label }} <span class="lane-count">{{ lane.items.length }}</span></div>
@@ -103,18 +103,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { defectsApi, projectsApi, modulesApi } from '@/api'
+import { ref, computed, onMounted, watch } from 'vue'
+import { defectsApi, modulesApi } from '@/api'
+import { useProjectStore } from '@/stores/project'
 import { Plus } from '@element-plus/icons-vue'
 
-const projects = ref<any[]>([])
+const projectStore = useProjectStore()
+
 const modules = ref<any[]>([])
 const defects = ref<any[]>([])
 const loading = ref(false)
 const viewMode = ref('kanban')
 const laneBy = ref('status')
 const filter = ref({
-  project_id: null,
   status: null,
   severity: null,
   priority: null,
@@ -178,7 +179,8 @@ const fetchData = async () => {
   loading.value = true
   try {
     const params: any = {}
-    if (filter.value.project_id) params.project_id = filter.value.project_id
+    if (projectStore.currentProjectId) params.project_id = projectStore.currentProjectId
+    if (projectStore.currentIterationId) params.iteration_id = projectStore.currentIterationId
     if (filter.value.status) params.status = filter.value.status
     if (filter.value.severity) params.severity = filter.value.severity
     if (filter.value.priority) params.priority = filter.value.priority
@@ -192,21 +194,23 @@ const fetchData = async () => {
   }
 }
 
+watch(
+  [() => projectStore.currentProjectId, () => projectStore.currentIterationId],
+  () => fetchData()
+)
+
 onMounted(async () => {
-  const [pRes, mRes] = await Promise.all([
-    projectsApi.list(),
-    modulesApi.list(),
-  ])
-  projects.value = pRes.data.items ?? pRes.data
-  modules.value = mRes.data
+  modules.value = (await modulesApi.list()).data
   fetchData()
 })
 </script>
 
 <style scoped>
-.filters-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.toolbar-filters { display:flex; align-items:center; gap:8px; flex-shrink:1; min-width:0; overflow:hidden; }
+.toolbar-actions { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+.lane-label { font-size:13px; color:#6b7280; white-space:nowrap; }
 .kanban-board { overflow-x:auto; }
-.kanban-header { margin-bottom:12px; display:flex; align-items:center; gap:8px; }
 .kanban-lanes { display:flex; gap:16px; min-width:max-content; }
 .kanban-lane { width:280px; }
 .lane-title {

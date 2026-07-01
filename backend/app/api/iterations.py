@@ -56,7 +56,7 @@ async def list_iterations_by_project(project_id: UUID, current_user: User = Depe
         raise HTTPException(status_code=403, detail="无权限访问此项目")
     result = await db.execute(
         select(Iteration)
-        .where(Iteration.project_id == project_id)
+        .where(Iteration.project_id == str(project_id))
         .order_by(Iteration.created_at.desc())
     )
     return result.scalars().all()

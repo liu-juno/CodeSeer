@@ -25,7 +25,7 @@ git rev-parse --show-toplevel
 
 ### 第 2 步：让用户选择项目
 
-调用 MCP 工具 `list_my_projects` 获取项目列表，向用户展示：
+调用 MCP 工具 `list_member_projects` 获取项目列表，向用户展示：
 
 ```
 以下是你参与的项目，请选择要安装 Skill 的项目（输入编号或"全部"）：

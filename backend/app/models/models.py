@@ -197,6 +197,7 @@ class Document(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     archived_at = Column(DateTime, nullable=True)
+    source_document_ids = Column(Text, nullable=True)  # JSON list, 记录合并来源文档 ID
 
     requirement = relationship("Requirement", backref="documents")
     module = relationship("Module", back_populates="documents")
@@ -441,7 +442,7 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    project_memberships = relationship("ProjectMember", back_populates="user", cascade="all, delete-orphan")
+    project_memberships = relationship("ProjectMember", foreign_keys="ProjectMember.user_id", back_populates="user", cascade="all, delete-orphan")
 
 
 # ── 代码变更记录 ─────────────────────────────────────────────────────────────

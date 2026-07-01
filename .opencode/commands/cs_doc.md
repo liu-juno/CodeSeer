@@ -20,8 +20,8 @@ description: 将文档上传到 CodeSeer 平台。用法：/cs_doc [design|plan|
 
 ```
 请选择要上传的文档类型：
-  1. 设计文档（design）  — brainstorming 产出的需求设计
-  2. 计划文档（plan）    — writing-plans 产出的实现计划
+  1. 设计文档（design）  — 需求设计文档（brainstorming 产出）
+  2. 计划文档（plan）    — 实现计划文档（writing-plans 产出）
   3. API 文档（api）     — 接口说明文档
   4. 其他（other）
 ```

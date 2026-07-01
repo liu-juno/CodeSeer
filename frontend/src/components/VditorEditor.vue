@@ -1,5 +1,5 @@
 <template>
-  <div ref="editorRef" class="vditor-editor"></div>
+  <div ref="editorRef" class="vditor-wrap"></div>
 </template>
 
 <script setup lang="ts">
@@ -10,7 +10,7 @@ import 'vditor/dist/index.css'
 const props = defineProps<{
   modelValue: string
   placeholder?: string
-  height?: string
+  height?: number
 }>()
 
 const emit = defineEmits<{
@@ -19,97 +19,58 @@ const emit = defineEmits<{
 
 const editorRef = ref<HTMLElement>()
 let vditor: Vditor | null = null
+let inited = false
 
-const handleValueChanged = (value: string) => {
-  emit('update:modelValue', value)
-}
+// 每个实例用唯一 cache ID，避免多实例冲突
+const cacheId = 'vditor-' + Math.random().toString(36).slice(2)
 
 onMounted(() => {
-  const editorElement = editorRef.value!
-  vditor = new Vditor(editorElement, {
-    value: props.modelValue,
-    placeholder: props.placeholder || '',
-    height: parseInt(props.height || '300'),
-    mode: 'wysiwyg',
-    cache: { id: 'vditor-editor' },
-    after: () => {
-      editorElement.addEventListener('input', () => {
-        if (vditor) {
-          handleValueChanged(vditor.getValue())
-        }
-      })
-    }
+  vditor = new Vditor(editorRef.value!, {
+    value: props.modelValue || '',
+    placeholder: props.placeholder || '支持 Markdown 语法...',
+    height: props.height ?? 260,
+    mode: 'ir',                    // instant rendering：单栏即时渲染
+    cdn: '/vditor',                // 使用 public/vditor，不走外部 CDN
+    cache: { enable: false },      // 关闭缓存，避免 localStorage 污染
+    toolbar: [
+      'headings', 'bold', 'italic', 'strike', '|',
+      'list', 'ordered-list', 'check', '|',
+      'code', 'inline-code', 'quote', '|',
+      'link', 'table', '|',
+      'undo', 'redo',
+    ],
+    input(value) {
+      emit('update:modelValue', value)
+    },
+    after() {
+      inited = true
+    },
   })
 })
 
 onBeforeUnmount(() => {
   vditor?.destroy()
+  vditor = null
 })
 
-watch(() => props.modelValue, (newVal) => {
-  if (vditor && vditor.getValue() !== newVal) {
-    vditor.setValue(newVal)
+watch(() => props.modelValue, (val) => {
+  if (inited && vditor && vditor.getValue() !== val) {
+    vditor.setValue(val ?? '')
   }
 })
 </script>
 
-<style>
-.vditor-editor {
-  border: 1px solid #dcdfe6;
-  border-radius: 4px;
+<style scoped>
+.vditor-wrap {
+  width: 100%;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-input);
   overflow: hidden;
 }
-
-.vditor-editor .vditor {
-  border: none;
-  border-radius: 0;
+:deep(.vditor) {
+  width: 100% !important;
 }
-
-.vditor-editor .vditor-toolbar {
-  padding: 4px 8px;
-  background: #f5f7fa;
-  display: flex !important;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.vditor-editor .vditor-toolbar__icon {
-  color: #586069;
-}
-
-.vditor-editor .vditor-toolbar__icon:hover {
-  color: #4285f4;
-  background: #e8e9eb;
-}
-
-.vditor-editor .vditor-toolbar__item {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 4px;
-  color: #586069;
-}
-
-.vditor-editor .vditor-toolbar__item:hover {
-  background: #e8e9eb;
-  color: #4285f4;
-}
-
-.vditor-editor .vditor-icon {
-  width: 16px;
-  height: 16px;
-  color: inherit;
-}
-
-.vditor-editor .vditor-icon svg {
-  width: 100%;
-  height: 100%;
-  fill: currentColor;
-}
-
-.vditor-editor .vditor-content {
-  background: #fff;
+:deep(.vditor-ir) {
+  width: 100% !important;
 }
 </style>

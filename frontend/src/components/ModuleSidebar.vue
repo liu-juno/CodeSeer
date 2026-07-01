@@ -36,6 +36,10 @@
         <el-icon><Files /></el-icon>
         <span>文档</span>
       </router-link>
+      <router-link to="/modules" class="nav-item">
+        <el-icon><Grid /></el-icon>
+        <span>模块</span>
+      </router-link>
       <router-link to="/standup" class="nav-item">
         <el-icon><Calendar /></el-icon>
         <span>站会</span>
@@ -44,11 +48,11 @@
       <div class="nav-divider" />
 
       <!-- 管理 -->
-      <router-link to="/users" class="nav-item">
+      <router-link v-if="isProjectAdmin" :to="membersLink" class="nav-item" active-class="" exact-active-class="" :class="{ 'router-link-active': isMembersActive }">
         <el-icon><User /></el-icon>
         <span>成员</span>
       </router-link>
-      <router-link to="/settings" class="nav-item">
+      <router-link :to="settingsLink" class="nav-item" active-class="" exact-active-class="" :class="{ 'router-link-active': isSettingsActive }">
         <el-icon><Setting /></el-icon>
         <span>设置</span>
       </router-link>
@@ -58,14 +62,37 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 import { useProjectStore } from '@/stores/project'
+import { useAuthStore } from '@/stores/auth'
 import {
   DataLine, Document, WarnTriangleFilled, Timer,
-  Files, Calendar, User, Setting
+  Files, Calendar, User, Setting, Grid
 } from '@element-plus/icons-vue'
 
+const route = useRoute()
 const projectStore = useProjectStore()
+const authStore = useAuthStore()
 const projectName = computed(() => projectStore.currentProject?.name || '未选择项目')
+
+const isProjectAdmin = computed(() =>
+  authStore.user?.role === 'admin' || projectStore.currentUserProjectRole === 'admin'
+)
+const settingsLink = computed(() =>
+  projectStore.currentProjectId
+    ? { path: `/project/${projectStore.currentProjectId}/settings`, query: { tab: 'info' } }
+    : '/settings'
+)
+const membersLink = computed(() =>
+  projectStore.currentProjectId
+    ? { path: `/project/${projectStore.currentProjectId}/settings`, query: { tab: 'members' } }
+    : '/users'
+)
+const isOnSettingsPage = computed(() =>
+  projectStore.currentProjectId && route.path === `/project/${projectStore.currentProjectId}/settings`
+)
+const isSettingsActive = computed(() => isOnSettingsPage.value && route.query.tab !== 'members')
+const isMembersActive = computed(() => isOnSettingsPage.value && route.query.tab === 'members')
 </script>
 
 <style scoped>

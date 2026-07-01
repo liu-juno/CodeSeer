@@ -5,7 +5,7 @@ from typing import List, Optional
 from pydantic import BaseModel
 
 from app.core.database import get_db
-from app.models.models import Module, Document, Skill, Project
+from app.models.models import Module, Document, Skill, Project, Requirement
 from app.schemas.schemas import ModuleCreate, ModuleUpdate, ModuleResponse, SkillResponse
 
 router = APIRouter(prefix="/modules", tags=["modules"])
@@ -148,72 +148,132 @@ async def get_module_knowledge(module_id: str, db: AsyncSession = Depends(get_db
     }
 
 
-class GenerateSkillRequest(BaseModel):
-    name: str
-    description: Optional[str] = None
-    document_ids: List[str]
+_TYPE_LABELS = {
+    "analysis": "需求文档",
+    "design":   "设计文档",
+    "api":      "API 文档",
+    "diagram":  "架构图",
+    "other":    "其他文档",
+}
+_TYPE_ORDER = ["analysis", "design", "api", "diagram", "other"]
 
 
-@router.post("/{module_id}/generate-skill", response_model=SkillResponse)
-async def generate_skill(module_id: str, body: GenerateSkillRequest, db: AsyncSession = Depends(get_db)):
-    """基于手动勾选的归档文档创建 Skill"""
+@router.get("/{module_id}/project-documents")
+async def list_project_documents(module_id: str, db: AsyncSession = Depends(get_db)):
+    """返回该模块所属项目下所有需求挂靠的文档，按 document_type 分组"""
     mod = (await db.execute(select(Module).where(Module.id == module_id))).scalar_one_or_none()
     if not mod:
         raise HTTPException(status_code=404, detail="Module not found")
 
-    if not body.document_ids:
-        raise HTTPException(status_code=400, detail="请至少勾选一份文档")
+    grouped: dict = {k: [] for k in _TYPE_ORDER}
+    if not mod.project_id:
+        return grouped
+
+    reqs = (await db.execute(
+        select(Requirement).where(Requirement.project_id == str(mod.project_id))
+    )).scalars().all()
+    if not reqs:
+        return grouped
+
+    req_title_map = {str(r.id): r.title for r in reqs}
+    req_ids = list(req_title_map.keys())
 
     docs = (await db.execute(
-        select(Document).where(
-            Document.id.in_(body.document_ids),
-            Document.module_id == module_id,
-            Document.status == "archived",
-        )
+        select(Document)
+        .where(Document.requirement_id.in_(req_ids))
+        .order_by(Document.updated_at.desc())
     )).scalars().all()
 
-    if not docs:
-        raise HTTPException(status_code=400, detail="未找到有效的归档文档")
+    for d in docs:
+        dt = d.document_type.value if hasattr(d.document_type, "value") else str(d.document_type)
+        key = dt if dt in grouped else "other"
+        grouped[key].append({
+            "id": str(d.id),
+            "title": d.title,
+            "document_type": dt,
+            "requirement_id": str(d.requirement_id) if d.requirement_id else None,
+            "requirement_title": req_title_map.get(str(d.requirement_id), ""),
+            "status": d.status,
+            "version": d.version,
+            "updated_at": str(d.updated_at),
+        })
 
-    # 查询项目名，拼接 Skill 全名：{项目名}_{模块名}_{用户输入功能名}
-    project_name = ""
-    if mod.project_id:
-        proj = (await db.execute(select(Project).where(Project.id == mod.project_id))).scalar_one_or_none()
-        if proj:
-            project_name = proj.name
-    skill_name = f"{project_name}_{mod.name}_{body.name}".strip("_")
+    return grouped
 
-    doc_refs = "\n".join(
-        f"- {d.title}（id: `{d.id}`）" for d in docs
-    )
 
-    prompt = f"""你是 {mod.name} 模块的领域专家。
+def _build_skill_prompt(module_name: str, docs: list) -> str:
+    by_type: dict = {k: [] for k in _TYPE_ORDER}
+    for d in docs:
+        dt = d.document_type.value if hasattr(d.document_type, "value") else str(d.document_type)
+        key = dt if dt in by_type else "other"
+        by_type[key].append(d)
 
-## 知识库文档（{len(docs)} 份）
+    total = len(docs)
+    lines = [f"## 知识库文档（{total} 份）"]
+    for dtype in _TYPE_ORDER:
+        if not by_type[dtype]:
+            continue
+        lines.append(f"\n### {_TYPE_LABELS[dtype]}")
+        for d in by_type[dtype]:
+            lines.append(f"- {d.title}（id: `{d.id}`）")
 
-{doc_refs}
-
+    lines.append("""
 ## 使用说明
 
 当你需要查阅某份文档的具体内容时，调用 MCP 工具：
 
-```
 get_document(document_id="<上方对应的 id>")
-```
 
 工具会返回该文档的完整 Markdown 正文，请基于返回内容回答问题。
 
 ## 你的职责
 
-当用户处理 {mod.name} 模块相关需求时：
+当用户处理 {module_name} 模块相关需求时：
 1. 根据问题判断需要查阅哪份文档，调用 get_document 获取内容
 2. 基于文档内容给出准确回答，并引用具体章节
-3. 在代码建议中体现文档中描述的架构规范与约束
-"""
+3. 在代码建议中体现文档中描述的架构规范与约束""".format(module_name=module_name))
+
+    return "\n".join(lines)
+
+
+@router.post("/{module_id}/sync-skill", response_model=SkillResponse)
+async def sync_skill(module_id: str, db: AsyncSession = Depends(get_db)):
+    """根据模块当前已关联的归档文档自动生成/更新 Skill"""
+    mod = (await db.execute(select(Module).where(Module.id == module_id))).scalar_one_or_none()
+    if not mod:
+        raise HTTPException(status_code=404, detail="Module not found")
+
+    docs = (await db.execute(
+        select(Document)
+        .where(Document.module_id == module_id, Document.status == "archived")
+        .order_by(Document.updated_at.desc())
+    )).scalars().all()
+
+    skill_name = mod.name
+    if mod.project_id:
+        proj = (await db.execute(select(Project).where(Project.id == mod.project_id))).scalar_one_or_none()
+        if proj and proj.identifier:
+            skill_name = f"{proj.identifier}_{mod.name}"
+
+    prompt = _build_skill_prompt(mod.name, docs)
+    description = f"{mod.name} 模块知识文档（{len(docs)} 份）"
+
+    existing = None
+    if mod.skill_id:
+        existing = (await db.execute(select(Skill).where(Skill.id == mod.skill_id))).scalar_one_or_none()
+
+    if existing:
+        existing.name = skill_name
+        existing.description = description
+        existing.prompt_template = prompt
+        await db.commit()
+        await db.refresh(existing)
+        return existing
+
     skill = Skill(
         name=skill_name,
         module_id=module_id,
-        description=body.description or f"基于 {len(docs)} 份归档文档",
+        description=description,
         source="manual",
         status="active",
         prompt_template=prompt,
@@ -222,10 +282,31 @@ get_document(document_id="<上方对应的 id>")
     db.add(skill)
     await db.commit()
     await db.refresh(skill)
-
     mod.skill_id = skill.id
     await db.commit()
+    return skill
 
+
+class SkillMetaUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+
+
+@router.patch("/{module_id}/skill", response_model=SkillResponse)
+async def update_skill_meta(module_id: str, body: SkillMetaUpdate, db: AsyncSession = Depends(get_db)):
+    """更新 Skill 的名称和描述"""
+    mod = (await db.execute(select(Module).where(Module.id == module_id))).scalar_one_or_none()
+    if not mod or not mod.skill_id:
+        raise HTTPException(status_code=404, detail="Skill not found")
+    skill = (await db.execute(select(Skill).where(Skill.id == mod.skill_id))).scalar_one_or_none()
+    if not skill:
+        raise HTTPException(status_code=404, detail="Skill not found")
+    if body.name is not None:
+        skill.name = body.name
+    if body.description is not None:
+        skill.description = body.description
+    await db.commit()
+    await db.refresh(skill)
     return skill
 
 

@@ -1,13 +1,11 @@
 <template>
   <div class="documents-page">
-    <div class="page-header">
-    </div>
+    <div class="page-header"></div>
 
     <el-row :gutter="14" style="margin-bottom:16px;">
-      <el-col :span="6"><el-card shadow="never" body-style="padding:16px;"><div style="display:flex; align-items:center; gap:14px;"><div class="stat-icon indigo">▤</div><div><div class="stat-value">{{ stats.total }}</div><div class="stat-label">总文档</div></div></div></el-card></el-col>
-      <el-col :span="6"><el-card shadow="never" body-style="padding:16px;"><div style="display:flex; align-items:center; gap:14px;"><div class="stat-icon amber">✎</div><div><div class="stat-value">{{ stats.draft }}</div><div class="stat-label">草稿</div></div></div></el-card></el-col>
-      <el-col :span="6"><el-card shadow="never" body-style="padding:16px;"><div style="display:flex; align-items:center; gap:14px;"><div class="stat-icon green">✓</div><div><div class="stat-value">{{ stats.archived }}</div><div class="stat-label">已归档</div></div></div></el-card></el-col>
-      <el-col :span="6"><el-card shadow="never" body-style="padding:16px;"><div style="display:flex; align-items:center; gap:14px;"><div class="stat-icon purple">⬡</div><div><div class="stat-value">{{ modules.length }}</div><div class="stat-label">模块</div></div></div></el-card></el-col>
+      <el-col :span="8"><el-card shadow="never" body-style="padding:16px;"><div style="display:flex; align-items:center; gap:14px;"><div class="stat-icon indigo">▤</div><div><div class="stat-value">{{ stats.total }}</div><div class="stat-label">总文档</div></div></div></el-card></el-col>
+      <el-col :span="8"><el-card shadow="never" body-style="padding:16px;"><div style="display:flex; align-items:center; gap:14px;"><div class="stat-icon amber">✎</div><div><div class="stat-value">{{ stats.draft }}</div><div class="stat-label">草稿</div></div></div></el-card></el-col>
+      <el-col :span="8"><el-card shadow="never" body-style="padding:16px;"><div style="display:flex; align-items:center; gap:14px;"><div class="stat-icon green">✓</div><div><div class="stat-value">{{ stats.archived }}</div><div class="stat-label">已归档</div></div></div></el-card></el-col>
     </el-row>
 
     <div class="filters-bar mb-16">
@@ -16,9 +14,6 @@
         <el-option value="draft" label="草稿" />
         <el-option value="archived" label="已归档" />
         <el-option value="deprecated" label="已废弃" />
-      </el-select>
-      <el-select v-model="filter.moduleId" placeholder="全部模块" style="width:200px;" clearable>
-        <el-option v-for="m in flatModules" :key="m.id" :label="(projectNameById(m.project_id) ? '[' + projectNameById(m.project_id) + '] ' : '') + m.path + m.name" :value="m.id" />
       </el-select>
       <el-select v-model="filter.type" placeholder="全部类型" style="width:130px;" clearable>
         <el-option value="analysis" label="需求分析" />
@@ -48,11 +43,6 @@
         <el-table-column prop="document_type" label="类型" width="100">
           <template #default="{ row }">{{ typeText(row.document_type) }}</template>
         </el-table-column>
-        <el-table-column label="模块" width="120">
-          <template #default="{ row }">
-            <el-text type="info" size="small">{{ getModuleName(row.module_id) || '未分类' }}</el-text>
-          </template>
-        </el-table-column>
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
             <el-tag size="small">{{ statusText(row.status) }}</el-tag>
@@ -74,8 +64,9 @@
             <el-text type="info" size="small">{{ formatDate(row.updated_at) }}</el-text>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200" align="right">
+        <el-table-column label="操作" width="230" align="right">
           <template #default="{ row }">
+            <el-button text size="small" @click="openView(row)">查看</el-button>
             <el-button v-if="row.processing_status === 'pending'" text size="small" type="primary" @click="processDoc(row)">整理</el-button>
             <el-button v-if="row.status === 'draft'" text size="small" type="primary" @click="archiveDoc(row)">归档</el-button>
             <el-button text size="small" type="primary" @click="openEdit(row)">编辑</el-button>
@@ -85,31 +76,36 @@
       </el-table>
     </el-card>
 
+    <!-- 查看文档 dialog -->
+    <el-dialog v-model="showView" :title="viewingDoc?.title" width="80%">
+      <div v-if="viewingDoc" style="border:1px solid var(--el-border-color); border-radius:8px; overflow:hidden;">
+        <div style="padding:8px 16px; border-bottom:1px solid var(--el-border-color); display:flex; align-items:center; gap:8px; background:#fafafa;">
+          <el-tag size="small" effect="plain">{{ typeText(viewingDoc.document_type) }}</el-tag>
+          <el-tag size="small" :type="viewingDoc.status === 'archived' ? 'success' : 'info'" effect="plain">{{ statusText(viewingDoc.status) }}</el-tag>
+          <span style="font-size:12px; color:#9ca3af; margin-left:auto;">v{{ viewingDoc.version }} · {{ formatDate(viewingDoc.updated_at) }}</span>
+        </div>
+        <MarkdownRenderer :content="viewingDoc.content || ''" height="60vh" />
+      </div>
+      <template #footer>
+        <el-button @click="showView = false">关闭</el-button>
+        <el-button type="primary" @click="() => { showView = false; openEdit(viewingDoc) }">编辑</el-button>
+      </template>
+    </el-dialog>
+
     <el-dialog v-model="showForm" :title="editing ? '编辑文档' : '新建文档'" width="680px">
       <el-form :model="form" label-position="top">
         <el-form-item label="文档标题" required>
           <el-input v-model="form.title" placeholder="如：用户登录 API 设计" />
         </el-form-item>
-        <el-row :gutter="14">
-          <el-col :span="12">
-            <el-form-item label="类型">
-              <el-select v-model="form.document_type" style="width:100%;">
-                <el-option value="analysis" label="需求分析" />
-                <el-option value="design" label="设计文档" />
-                <el-option value="api" label="接口文档" />
-                <el-option value="diagram" label="架构图" />
-                <el-option value="other" label="其他" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="关联模块">
-              <el-select v-model="form.module_id" style="width:100%;" clearable>
-                <el-option v-for="m in flatModules" :key="m.id" :label="(projectNameById(m.project_id) ? '[' + projectNameById(m.project_id) + '] ' : '') + m.path + m.name" :value="m.id" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-        </el-row>
+        <el-form-item label="类型">
+          <el-select v-model="form.document_type" style="width:200px;">
+            <el-option value="analysis" label="需求分析" />
+            <el-option value="design" label="设计文档" />
+            <el-option value="api" label="接口文档" />
+            <el-option value="diagram" label="架构图" />
+            <el-option value="other" label="其他" />
+          </el-select>
+        </el-form-item>
         <el-form-item v-if="!editing" label="从本地上传（.md / .txt）">
           <el-upload
             :show-file-list="false"
@@ -125,7 +121,7 @@
           </el-upload>
         </el-form-item>
         <el-form-item label="文档内容（支持 Markdown）">
-          <el-input v-model="form.content" type="textarea" :rows="10" placeholder="# 设计文档&#10;&#10;## 背景&#10;..." style="font-family:monospace; font-size:13px;" />
+          <VditorEditor v-model="form.content" :height="340" placeholder="# 设计文档&#10;&#10;## 背景&#10;..." />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -138,34 +134,21 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { documentsApi, modulesApi, projectsApi } from '@/api'
+import { documentsApi } from '@/api'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
+import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
+import VditorEditor from '@/components/VditorEditor.vue'
 
 const docs = ref<any[]>([])
-const modules = ref<any[]>([])
-const projects = ref<any[]>([])
 const loading = ref(false)
 const saving = ref(false)
 const showForm = ref(false)
+const showView = ref(false)
+const viewingDoc = ref<any>(null)
 const editing = ref<any>(null)
-const filter = ref({ search: '', status: '', moduleId: '', type: '' })
-const form = ref({ title: '', document_type: 'design', module_id: '', content: '' })
-
-const projectNameById = (id: string) => projects.value.find((p: any) => p.id === id)?.name || ''
-
-const flatModules = computed(() => {
-  const out: any[] = []
-  const walk = (list: any[], prefix: string, projectId: string) => {
-    for (const m of list) {
-      const path = prefix + m.name + '/'
-      out.push({ id: m.id, name: m.name, path: prefix, project_id: m.project_id ?? projectId })
-      if (m.children?.length) walk(m.children, path, m.project_id ?? projectId)
-    }
-  }
-  walk(modules.value, '', '')
-  return out
-})
+const filter = ref({ search: '', status: '', type: '' })
+const form = ref({ title: '', document_type: 'design', content: '' })
 
 const stats = computed(() => ({
   total: docs.value.length,
@@ -184,7 +167,6 @@ const displayedDocs = computed(() => {
     )
   }
   if (filter.value.status) list = list.filter((d: any) => d.status === filter.value.status)
-  if (filter.value.moduleId) list = list.filter((d: any) => d.module_id === filter.value.moduleId)
   if (filter.value.type) list = list.filter((d: any) => d.document_type === filter.value.type)
   return list
 })
@@ -195,34 +177,31 @@ const statusText = (s: string) => ({ draft: '草稿', archived: '已归档', dep
 const processingText = (p: string) => ({ pending: '待整理', processing: '整理中', completed: '已整理', failed: '失败' }[p] || p)
 const formatDate = (d: string) => d ? new Date(d).toLocaleDateString('zh-CN') : '-'
 
-const getModuleName = (id: string) => {
-  if (!id) return ''
-  const m = flatModules.value.find((m: any) => m.id === id)
-  return m ? m.name : ''
-}
-
 const handleFileUpload = (file: File) => {
   const reader = new FileReader()
   reader.onload = (e) => {
     const text = e.target?.result as string
-    if (!form.value.title) {
-      form.value.title = file.name.replace(/\.(md|txt)$/i, '')
-    }
+    if (!form.value.title) form.value.title = file.name.replace(/\.(md|txt)$/i, '')
     form.value.content = text
   }
   reader.readAsText(file, 'utf-8')
-  return false  // 阻止 el-upload 自动上传
+  return false
+}
+
+const openView = (doc: any) => {
+  viewingDoc.value = doc
+  showView.value = true
 }
 
 const openCreate = () => {
   editing.value = null
-  form.value = { title: '', document_type: 'design', module_id: '', content: '' }
+  form.value = { title: '', document_type: 'design', content: '' }
   showForm.value = true
 }
 
 const openEdit = (doc: any) => {
   editing.value = doc
-  form.value = { title: doc.title, document_type: doc.document_type, module_id: doc.module_id || '', content: doc.content || '' }
+  form.value = { title: doc.title, document_type: doc.document_type, content: doc.content || '' }
   showForm.value = true
 }
 
@@ -272,10 +251,7 @@ const deleteDoc = async (doc: any) => {
 const fetchData = async () => {
   loading.value = true
   try {
-    const [dRes, mRes, pRes] = await Promise.all([documentsApi.list(), modulesApi.list(), projectsApi.list()])
-    docs.value = dRes.data
-    modules.value = mRes.data
-    projects.value = pRes.data.items ?? pRes.data
+    docs.value = (await documentsApi.list()).data
   } catch (e) { console.error(e) }
   finally { loading.value = false }
 }
@@ -284,9 +260,7 @@ onMounted(fetchData)
 </script>
 
 <style scoped>
-.page-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; }
-.page-title { font-size:20px; font-weight:700; color:#1f2329; margin:0; }
-.page-subtitle { font-size:13px; color:#969ba4; margin:4px 0 0 0; }
+.page-header { margin-bottom:24px; }
 .filters-bar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
 .mb-16 { margin-bottom:16px; }
 .stat-value { font-size:22px; font-weight:700; color:#1f2329; line-height:1; }
@@ -295,7 +269,6 @@ onMounted(fetchData)
 .stat-icon.indigo { background:rgba(99,102,241,0.1); }
 .stat-icon.amber { background:rgba(255,154,46,0.1); }
 .stat-icon.green { background:rgba(0,168,112,0.1); }
-.stat-icon.purple { background:rgba(139,92,246,0.1); }
 .doc-type-icon { font-size:16px; line-height:1.2; margin-top:2px; width:24px; text-align:center; flex-shrink:0; }
 .doc-type-icon.analysis { color:#6366f1; }
 .doc-type-icon.design { color:#8b5cf6; }

@@ -1,13 +1,5 @@
 <template>
   <div class="standup-page">
-    <div class="page-header">
-      <div style="display:flex;gap:10px;align-items:center;">
-        <el-select v-model="selectedIteration" placeholder="全部迭代" style="width:200px" clearable>
-          <el-option v-for="it in iterations" :key="it.id" :label="it.name" :value="it.id" />
-        </el-select>
-      </div>
-    </div>
-
     <el-row :gutter="14" style="margin-bottom:20px;">
       <el-col :span="6">
         <el-card shadow="never" body-style="padding:16px;">
@@ -164,19 +156,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { requirementsApi, iterationsApi } from '@/api'
+import { useProjectStore } from '@/stores/project'
 
+const projectStore = useProjectStore()
 const requirements = ref<any[]>([])
 const iterations = ref<any[]>([])
 const loading = ref(false)
-const selectedIteration = ref('')
 
-const filteredReqs = computed(() =>
-  selectedIteration.value
-    ? requirements.value.filter(r => r.iteration_id === selectedIteration.value)
-    : requirements.value
-)
+const filteredReqs = computed(() => requirements.value)
 
 const overview = computed(() => ({
   total: filteredReqs.value.length,
@@ -244,14 +233,25 @@ const statusText = (s: string) => ({
 const getIterationName = (id: string) => iterations.value.find((i: any) => i.id === id)?.name || '-'
 
 const fetchData = async () => {
+  if (!projectStore.currentProjectId) return
   loading.value = true
   try {
-    const [reqRes, iterRes] = await Promise.all([requirementsApi.list(), iterationsApi.list()])
-    requirements.value = reqRes.data.items
-    iterations.value = iterRes.data.items
+    const params: any = { project_id: projectStore.currentProjectId }
+    if (projectStore.currentIterationId) params.iteration_id = projectStore.currentIterationId
+    const [reqRes, iterRes] = await Promise.all([
+      requirementsApi.list(params),
+      iterationsApi.byProject(projectStore.currentProjectId),
+    ])
+    requirements.value = reqRes.data.items ?? []
+    iterations.value = Array.isArray(iterRes.data) ? iterRes.data : (iterRes.data.items ?? [])
   } catch (e) { console.error(e) }
   finally { loading.value = false }
 }
+
+watch(
+  [() => projectStore.currentProjectId, () => projectStore.currentIterationId],
+  () => fetchData()
+)
 
 onMounted(fetchData)
 </script>

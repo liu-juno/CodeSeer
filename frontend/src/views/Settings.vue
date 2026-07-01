@@ -59,6 +59,94 @@
         </el-card>
       </el-tab-pane>
 
+      <el-tab-pane name="llm">
+        <template #label>
+          <span style="display:flex; align-items:center; gap:6px;">
+            <span>⬡</span> AI / LLM
+          </span>
+        </template>
+        <el-card shadow="never" style="margin-bottom:16px;">
+          <template #header><div style="font-weight:600;">大模型（AI）配置</div></template>
+          <el-form label-position="top" style="max-width:560px;">
+            <el-form-item label="Provider">
+              <el-select v-model="envForm.LLM_PROVIDER" style="width:100%;">
+                <el-option value="openai" label="OpenAI / 兼容 OpenAI API" />
+                <el-option value="anthropic" label="Anthropic (Claude)" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="Base URL">
+              <el-input v-model="envForm.LLM_BASE_URL" placeholder="https://api.openai.com/v1" />
+            </el-form-item>
+            <el-form-item label="API Key">
+              <el-input v-model="envForm.LLM_API_KEY" type="password" show-password placeholder="sk-..." />
+              <div style="font-size:12px; color:#9ca3af; margin-top:4px;">留空则保持当前值不变；已配置时显示脱敏值</div>
+            </el-form-item>
+            <el-form-item label="模型">
+              <el-input v-model="envForm.LLM_MODEL" placeholder="gpt-4o-mini / claude-3-5-sonnet-20241022" />
+            </el-form-item>
+            <div style="display:flex; gap:16px;">
+              <el-form-item label="Max Tokens" style="flex:1;">
+                <el-input-number v-model="envForm.LLM_MAX_TOKENS" :min="100" :max="200000" />
+              </el-form-item>
+              <el-form-item label="Temperature" style="flex:1;">
+                <el-input-number v-model="envForm.LLM_TEMPERATURE" :min="0" :max="2" :step="0.1" :precision="1" />
+              </el-form-item>
+            </div>
+            <div v-if="envForm.LLM_API_KEY && !envForm.LLM_API_KEY.includes('****') && envForm.LLM_API_KEY.length > 10">
+              <el-alert type="success" :closable="false">✓ API Key 已配置</el-alert>
+            </div>
+            <div v-else-if="!envForm.LLM_API_KEY">
+              <el-alert type="warning" :closable="false">尚未配置 API Key，文档合并功能将无法使用</el-alert>
+            </div>
+          </el-form>
+        </el-card>
+
+        <el-card shadow="never" style="margin-bottom:16px;">
+          <template #header><div style="font-weight:600;">FTP 存储配置</div></template>
+          <el-form label-position="top" style="max-width:560px;">
+            <el-form-item label="FTP Host">
+              <el-input v-model="envForm.FTP_HOST" placeholder="ftp.example.com" />
+            </el-form-item>
+            <div style="display:flex; gap:12px;">
+              <el-form-item label="端口" style="width:120px;">
+                <el-input-number v-model="envForm.FTP_PORT" :min="1" :max="65535" />
+              </el-form-item>
+              <el-form-item label="用户名" style="flex:1;">
+                <el-input v-model="envForm.FTP_USERNAME" placeholder="admin" />
+              </el-form-item>
+              <el-form-item label="密码" style="flex:1;">
+                <el-input v-model="envForm.FTP_PASSWORD" type="password" show-password placeholder="••••" />
+              </el-form-item>
+            </div>
+            <el-form-item label="远程路径">
+              <el-input v-model="envForm.FTP_REMOTE_BASE_PATH" placeholder="/code-changes" />
+            </el-form-item>
+          </el-form>
+        </el-card>
+
+        <el-card shadow="never">
+          <template #header><div style="font-weight:600;">OSS 存储配置（可替代 FTP）</div></template>
+          <el-form label-position="top" style="max-width:560px;">
+            <el-form-item label="Endpoint">
+              <el-input v-model="envForm.OSS_ENDPOINT" placeholder="https://s3.amazonaws.com" />
+            </el-form-item>
+            <el-form-item label="Access Key ID">
+              <el-input v-model="envForm.OSS_ACCESS_KEY_ID" placeholder="AKIA..." />
+            </el-form-item>
+            <el-form-item label="Access Key Secret">
+              <el-input v-model="envForm.OSS_ACCESS_KEY_SECRET" type="password" show-password placeholder="••••" />
+            </el-form-item>
+            <el-form-item label="Bucket Name">
+              <el-input v-model="envForm.OSS_BUCKET_NAME" placeholder="codeseer-changes" />
+            </el-form-item>
+          </el-form>
+        </el-card>
+
+        <div style="margin-top:16px;">
+          <el-button type="primary" :loading="savingLlm" @click="saveEnv">保存所有配置</el-button>
+        </div>
+      </el-tab-pane>
+
       <el-tab-pane name="custom-fields">
         <template #label>
           <span style="display:flex; align-items:center; gap:6px;">
@@ -162,10 +250,12 @@ const activeTab = ref<string>((route.query.tab as string) || 'state-machine')
 const stateMachine = ref<any[]>([])
 const customFields = ref<any[]>([])
 const saving = ref(false)
+const savingLlm = ref(false)
 const showFieldForm = ref(false)
 const editingField = ref<any>(null)
 const fieldForm = ref({ field_key: '', field_name: '', field_type: 'text', required: false })
 const optionsText = ref('')
+const envForm = ref<Record<string, any>>({})
 
 const otherStates = (s: any, idx: number) => stateMachine.value.filter((_, i) => i !== idx)
 
@@ -249,10 +339,25 @@ const fetchCustomFields = async () => {
   const res = await configApi.customFields()
   customFields.value = res.data
 }
+const fetchLlmConfig = async () => {
+  try {
+    const res = await configApi.envConfig()
+    envForm.value = res.data
+  } catch (e) { console.error(e) }
+}
+const saveEnv = async () => {
+  savingLlm.value = true
+  try {
+    await configApi.updateEnvConfig(envForm.value)
+    ElMessage.success('配置已保存到 .env')
+  } catch (e) { console.error(e) }
+  finally { savingLlm.value = false }
+}
 
 onMounted(() => {
   fetchStateMachine()
   fetchCustomFields()
+  fetchLlmConfig()
 })
 </script>
 

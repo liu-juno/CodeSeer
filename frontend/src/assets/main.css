@@ -1,6 +1,6 @@
 /* ── Layout sizing ─────────────────────────────────────────── */
 :root {
-  --rail-width:     clamp(40px, 3.5vw, 56px);
+  --rail-width:     clamp(60px, 5vw, 72px);
   --sidebar-width:  clamp(180px, 14vw, 220px);
   --topbar-height:  clamp(48px, 4.5vh, 60px);
 

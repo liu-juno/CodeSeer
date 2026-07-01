@@ -8,7 +8,7 @@
           <el-option value="development" label="开发中" />
           <el-option value="testing" label="测试中" />
           <el-option value="released" label="已发布" />
-          <el-option value="archived" label="已归档" />
+          <el-option value="archived" label="已关闭" />
         </el-select>
         <el-button type="primary" @click="showCreateModal = true">
           <el-icon><Plus /></el-icon> 创建迭代
@@ -25,14 +25,20 @@
           </el-link>
         </template>
       </el-table-column>
-      <el-table-column prop="project_id" label="所属项目" width="180">
+      <el-table-column prop="status" label="状态" width="130">
         <template #default="{ row }">
-          <el-text class="text-muted">{{ getProjectName(row.project_id) }}</el-text>
-        </template>
-      </el-table-column>
-      <el-table-column prop="status" label="状态" width="100">
-        <template #default="{ row }">
-          <el-tag :type="statusType(row.status)" size="small">{{ statusText(row.status) }}</el-tag>
+          <el-select
+            :model-value="row.status"
+            size="small"
+            style="width:110px;"
+            @change="(val: string) => changeStatus(row, val)"
+          >
+            <el-option value="planning" label="规划中" />
+            <el-option value="development" label="开发中" />
+            <el-option value="testing" label="测试中" />
+            <el-option value="released" label="已发布" />
+            <el-option value="archived" label="已关闭" />
+          </el-select>
         </template>
       </el-table-column>
       <el-table-column prop="planned_release_date" label="计划发布日期" width="140">
@@ -72,20 +78,13 @@
         <el-form-item label="描述">
           <el-input v-model="newIteration.description" type="textarea" placeholder="本次迭代目标..." />
         </el-form-item>
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
-          <el-form-item label="所属项目" required>
-            <el-select v-model="newIteration.project_id" placeholder="选择项目" style="width:100%">
-              <el-option v-for="proj in projects" :key="proj.id" :label="proj.name" :value="proj.id" />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="计划发布日期">
-            <el-date-picker v-model="newIteration.planned_release_date" type="date" placeholder="选择日期" style="width:100%" value-format="YYYY-MM-DD" />
-          </el-form-item>
-        </div>
+        <el-form-item label="计划发布日期">
+          <el-date-picker v-model="newIteration.planned_release_date" type="date" placeholder="选择日期" style="width:100%" value-format="YYYY-MM-DD" />
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="showCreateModal = false">取消</el-button>
-        <el-button type="primary" :disabled="!newIteration.name.trim() || !newIteration.project_id" @click="createIteration">创建</el-button>
+        <el-button type="primary" :disabled="!newIteration.name.trim()" @click="createIteration">创建</el-button>
       </template>
     </el-dialog>
   </div>
@@ -93,22 +92,23 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { useRoute } from 'vue-router'
-import { iterationsApi, projectsApi } from '@/api'
+import { iterationsApi } from '@/api'
 import { usePagination } from '@/composables/usePagination'
+import { useProjectStore } from '@/stores/project'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 
-const route = useRoute()
+const projectStore = useProjectStore()
 
 const { items: iterations, total, page, pageSize, loading, fetchPage, onPageChange, onSizeChange } = usePagination(
   async (p, ps) => {
-    const res = await iterationsApi.list(p, ps)
-    return { items: res.data.items, total: res.data.total }
+    if (!projectStore.currentProjectId) return { items: [], total: 0 }
+    const all = (await iterationsApi.byProject(projectStore.currentProjectId)).data as any[]
+    const start = (p - 1) * ps
+    return { items: all.slice(start, start + ps), total: all.length }
   }
 )
 
-const projects = ref<any[]>([])
 const showCreateModal = ref(false)
 const search = ref('')
 const statusFilter = ref('')
@@ -137,29 +137,19 @@ const statusType = (s: string) => ({
 
 const statusText = (status: string) => ({
   planning: '规划中', development: '开发中', testing: '测试中',
-  released: '已发布', archived: '已归档',
+  released: '已发布', archived: '已关闭',
 }[status] || status)
-
-const getProjectName = (projectId: string) => {
-  const p = projects.value.find((p: any) => p.id === projectId)
-  return p?.name || '—'
-}
 
 const formatDate = (date: string) => new Date(date).toLocaleDateString('zh-CN')
 
-const fetchData = async () => {
-  try {
-    const projRes = await projectsApi.list()
-    projects.value = projRes.data.items
-  } catch (e) {
-    console.error(e)
-  }
-  fetchPage(1)
-}
+watch(() => projectStore.currentProjectId, () => fetchPage(1))
 
 const createIteration = async () => {
   try {
-    await iterationsApi.create(newIteration.value)
+    await iterationsApi.create({
+      ...newIteration.value,
+      project_id: projectStore.currentProjectId,
+    })
     showCreateModal.value = false
     newIteration.value = { name: '', description: '', project_id: '', planned_release_date: '' }
     ElMessage.success('创建成功')
@@ -167,6 +157,14 @@ const createIteration = async () => {
   } catch (e) {
     console.error(e)
   }
+}
+
+const changeStatus = async (row: any, newStatus: string) => {
+  try {
+    await iterationsApi.update(row.id, { status: newStatus })
+    row.status = newStatus
+    ElMessage.success(`已更新为「${statusText(newStatus)}」`)
+  } catch (e) { console.error(e) }
 }
 
 const deleteIteration = async (id: string) => {
@@ -178,7 +176,7 @@ const deleteIteration = async (id: string) => {
   } catch (e) { if (e !== 'cancel') console.error(e) }
 }
 
-onMounted(fetchData)
+onMounted(() => fetchPage(1))
 </script>
 
 <style scoped>

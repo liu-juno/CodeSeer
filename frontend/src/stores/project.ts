@@ -10,11 +10,13 @@ export const useProjectStore = defineStore('project', () => {
   const currentIteration = ref<any | null>(null)
 
   const hasProject = computed(() => !!currentProjectId.value)
+  const currentUserProjectRole = computed<string | null>(() => currentProject.value?.my_role ?? null)
 
   function setCurrentProject(project: any) {
     currentProject.value = project
     currentProjectId.value = project.id
     localStorage.setItem('currentProjectId', project.id)
+    clearCurrentIteration()
   }
 
   function clearCurrentProject() {
@@ -42,6 +44,11 @@ export const useProjectStore = defineStore('project', () => {
   async function fetchMyProjects() {
     const res = await projectsApi.getMine()
     myProjects.value = res.data
+    // Restore currentProject object if only the ID was persisted
+    if (currentProjectId.value && !currentProject.value) {
+      const found = myProjects.value.find((p: any) => p.id === currentProjectId.value)
+      if (found) currentProject.value = found
+    }
     return myProjects.value
   }
 
@@ -60,6 +67,7 @@ export const useProjectStore = defineStore('project', () => {
     currentIterationId,
     currentIteration,
     hasProject,
+    currentUserProjectRole,
     setCurrentProject,
     clearCurrentProject,
     setCurrentIteration,

@@ -50,6 +50,7 @@ git rev-parse --show-toplevel
 - `<PROJECT_ROOT>/.claude/commands/cs_start.md`
 - `<PROJECT_ROOT>/.claude/commands/cs_doc.md`
 - `<PROJECT_ROOT>/.claude/commands/cs_skill.md`
+- `<PROJECT_ROOT>/.claude/commands/cs_sync_brd.md`
 
 **OpenCode：**
 - `<PROJECT_ROOT>/.opencode/skills/codeseer-integration/` 整个目录
@@ -58,6 +59,7 @@ git rev-parse --show-toplevel
 - `<PROJECT_ROOT>/.opencode/commands/cs_start.md`
 - `<PROJECT_ROOT>/.opencode/commands/cs_doc.md`
 - `<PROJECT_ROOT>/.opencode/commands/cs_skill.md`
+- `<PROJECT_ROOT>/.opencode/commands/cs_sync_brd.md`
 
 ### 第 5 步：写入最新文件
 
@@ -69,6 +71,7 @@ git rev-parse --show-toplevel
 - 【cs_start 命令】→ `<PROJECT_ROOT>/.claude/commands/cs_start.md`
 - 【cs_doc 命令】→ `<PROJECT_ROOT>/.claude/commands/cs_doc.md`
 - 【cs_skill 命令】→ `<PROJECT_ROOT>/.claude/commands/cs_skill.md`
+- 【cs_sync_brd 命令】→ `<PROJECT_ROOT>/.claude/commands/cs_sync_brd.md`
 
 **OpenCode：**
 - 【cs_integration 技能】→ `<PROJECT_ROOT>/.opencode/skills/cs_integration/SKILL.md`
@@ -76,6 +79,7 @@ git rev-parse --show-toplevel
 - 【cs_start 命令】→ `<PROJECT_ROOT>/.opencode/commands/cs_start.md`
 - 【cs_doc 命令】→ `<PROJECT_ROOT>/.opencode/commands/cs_doc.md`
 - 【cs_skill 命令】→ `<PROJECT_ROOT>/.opencode/commands/cs_skill.md`
+- 【cs_sync_brd 命令】→ `<PROJECT_ROOT>/.opencode/commands/cs_sync_brd.md`
 
 ### 第 6 步：输出安装结果
 
@@ -91,6 +95,7 @@ cs_integration 技能    ✅ .opencode/skills/cs_integration/SKILL.md
 /cs_start 命令         ✅ .opencode/commands/cs_start.md
 /cs_doc 命令           ✅ .opencode/commands/cs_doc.md
 /cs_skill 命令         ✅ .opencode/commands/cs_skill.md
+/cs_sync_brd 命令      ✅ .opencode/commands/cs_sync_brd.md
 ```
 
 现在可以说"我要开始工作"或输入 /cs_start 启动开发工作流

@@ -506,7 +506,12 @@ const cyclePhase = async (p: any) => {
   const next = PHASE_NEXT[p.status]
   try {
     await requirementsApi.updatePhase(route.params.id as string, p.id, { status: next })
-    fetchPhases()
+    // 阶段变更后刷新需求状态（可能被后端自动推进为已完成）
+    const [, rRes] = await Promise.all([
+      fetchPhases(),
+      requirementsApi.get(route.params.id as string),
+    ])
+    requirement.value = rRes.data
     fetchHistory()
   } catch (e) { console.error(e) }
 }

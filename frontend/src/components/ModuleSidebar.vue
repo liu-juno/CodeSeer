@@ -36,6 +36,10 @@
         <el-icon><Files /></el-icon>
         <span>文档</span>
       </router-link>
+      <router-link to="/api-endpoints" class="nav-item">
+        <el-icon><Connection /></el-icon>
+        <span>API</span>
+      </router-link>
       <router-link to="/modules" class="nav-item">
         <el-icon><Grid /></el-icon>
         <span>模块</span>
@@ -67,7 +71,7 @@ import { useProjectStore } from '@/stores/project'
 import { useAuthStore } from '@/stores/auth'
 import {
   DataLine, Document, WarnTriangleFilled, Timer,
-  Files, Calendar, User, Setting, Grid
+  Files, Calendar, User, Setting, Grid, Connection
 } from '@element-plus/icons-vue'
 
 const route = useRoute()

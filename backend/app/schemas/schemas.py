@@ -702,3 +702,143 @@ class ProjectMemberResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ── API 管理 Schemas ────────────────────────────────────────────────────────────
+
+class ApiEndpointBase(BaseModel):
+    method: str
+    path: str
+    summary: Optional[str] = None
+    description: Optional[str] = None
+    request_schema: Optional[str] = None
+    response_schema: Optional[str] = None
+    headers: Optional[str] = None
+    module_id: Optional[str] = None
+
+
+class ApiEndpointCreate(ApiEndpointBase):
+    project_id: str
+
+
+class ApiEndpointUpdate(BaseModel):
+    method: Optional[str] = None
+    path: Optional[str] = None
+    summary: Optional[str] = None
+    description: Optional[str] = None
+    request_schema: Optional[str] = None
+    response_schema: Optional[str] = None
+    headers: Optional[str] = None
+    module_id: Optional[str] = None
+    status: Optional[str] = None
+
+
+class ApiEndpointResponse(ApiEndpointBase):
+    id: str
+    project_id: str
+    status: str
+    version: int
+    created_by: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ApiEndpointVersionResponse(BaseModel):
+    id: str
+    endpoint_id: str
+    version: int
+    request_schema: Optional[str] = None
+    response_schema: Optional[str] = None
+    change_note: Optional[str] = None
+    created_by: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# 环境
+class ApiEnvironmentBase(BaseModel):
+    name: str
+    base_url: str
+    variables: Optional[str] = None
+    is_default: bool = False
+
+
+class ApiEnvironmentCreate(ApiEnvironmentBase):
+    project_id: str
+
+
+class ApiEnvironmentUpdate(BaseModel):
+    name: Optional[str] = None
+    base_url: Optional[str] = None
+    variables: Optional[str] = None
+    is_default: Optional[bool] = None
+
+
+class ApiEnvironmentResponse(ApiEnvironmentBase):
+    id: str
+    project_id: str
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# 测试用例
+class ApiTestCaseBase(BaseModel):
+    name: str
+    request_params: Optional[str] = None
+    expected_status: Optional[int] = None
+    expected_response: Optional[str] = None
+
+
+class ApiTestCaseCreate(ApiTestCaseBase):
+    pass
+
+
+class ApiTestCaseUpdate(BaseModel):
+    name: Optional[str] = None
+    request_params: Optional[str] = None
+    expected_status: Optional[int] = None
+    expected_response: Optional[str] = None
+
+
+class ApiTestCaseResponse(ApiTestCaseBase):
+    id: str
+    endpoint_id: str
+    created_by: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# 在线测试请求
+class ApiTestRequest(BaseModel):
+    environment_id: str
+    request_params: Optional[str] = None
+    custom_headers: Optional[str] = None
+
+
+# 测试记录
+class ApiTestRecordResponse(BaseModel):
+    id: str
+    endpoint_id: str
+    test_case_id: Optional[str] = None
+    environment_id: Optional[str] = None
+    request_params: Optional[str] = None
+    response_status: Optional[int] = None
+    response_body: Optional[str] = None
+    response_time_ms: Optional[int] = None
+    result: Optional[str] = None
+    error_message: Optional[str] = None
+    executed_by: Optional[str] = None
+    executed_at: datetime
+
+    class Config:
+        from_attributes = True

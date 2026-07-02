@@ -497,3 +497,103 @@ CREATE TABLE `access_tokens` (
   KEY `idx_access_tokens_user_id` (`user_id`),
   CONSTRAINT `fk_access_tokens_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- ============================================================
+-- Table: api_endpoints
+-- ============================================================
+DROP TABLE IF EXISTS `api_endpoints`;
+CREATE TABLE `api_endpoints` (
+  `id` varchar(36) NOT NULL,
+  `project_id` varchar(36) NOT NULL,
+  `module_id` varchar(36) DEFAULT NULL,
+  `method` varchar(10) NOT NULL COMMENT 'GET|POST|PUT|DELETE|PATCH',
+  `path` varchar(200) NOT NULL,
+  `summary` varchar(200) DEFAULT NULL,
+  `description` text,
+  `request_schema` text COMMENT 'JSON Schema',
+  `response_schema` text COMMENT 'JSON Schema',
+  `headers` text COMMENT 'JSON',
+  `status` varchar(10) DEFAULT 'draft' COMMENT 'draft|published|deprecated',
+  `version` int(11) DEFAULT 1,
+  `created_by` varchar(36) DEFAULT NULL,
+  `created_at` datetime DEFAULT NULL,
+  `updated_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_api_endpoints_project` (`project_id`),
+  KEY `idx_api_endpoints_module` (`module_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================================
+-- Table: api_endpoint_versions
+-- ============================================================
+DROP TABLE IF EXISTS `api_endpoint_versions`;
+CREATE TABLE `api_endpoint_versions` (
+  `id` varchar(36) NOT NULL,
+  `endpoint_id` varchar(36) NOT NULL,
+  `version` int(11) NOT NULL,
+  `request_schema` text,
+  `response_schema` text,
+  `change_note` varchar(500) DEFAULT NULL,
+  `created_by` varchar(36) DEFAULT NULL,
+  `created_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_versions_endpoint` (`endpoint_id`),
+  CONSTRAINT `fk_versions_endpoint` FOREIGN KEY (`endpoint_id`) REFERENCES `api_endpoints` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================================
+-- Table: api_environments
+-- ============================================================
+DROP TABLE IF EXISTS `api_environments`;
+CREATE TABLE `api_environments` (
+  `id` varchar(36) NOT NULL,
+  `project_id` varchar(36) NOT NULL,
+  `name` varchar(50) NOT NULL,
+  `base_url` varchar(200) NOT NULL,
+  `variables` text COMMENT 'JSON',
+  `is_default` tinyint(1) DEFAULT 0,
+  `created_at` datetime DEFAULT NULL,
+  `updated_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_envs_project` (`project_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================================
+-- Table: api_test_cases
+-- ============================================================
+DROP TABLE IF EXISTS `api_test_cases`;
+CREATE TABLE `api_test_cases` (
+  `id` varchar(36) NOT NULL,
+  `endpoint_id` varchar(36) NOT NULL,
+  `name` varchar(200) NOT NULL,
+  `request_params` text COMMENT 'JSON',
+  `expected_status` int(11) DEFAULT NULL,
+  `expected_response` text COMMENT 'JSON',
+  `created_by` varchar(36) DEFAULT NULL,
+  `created_at` datetime DEFAULT NULL,
+  `updated_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_cases_endpoint` (`endpoint_id`),
+  CONSTRAINT `fk_cases_endpoint` FOREIGN KEY (`endpoint_id`) REFERENCES `api_endpoints` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================================
+-- Table: api_test_records
+-- ============================================================
+DROP TABLE IF EXISTS `api_test_records`;
+CREATE TABLE `api_test_records` (
+  `id` varchar(36) NOT NULL,
+  `endpoint_id` varchar(36) NOT NULL,
+  `test_case_id` varchar(36) DEFAULT NULL,
+  `environment_id` varchar(36) DEFAULT NULL,
+  `request_params` text,
+  `response_status` int(11) DEFAULT NULL,
+  `response_body` text,
+  `response_time_ms` int(11) DEFAULT NULL,
+  `result` varchar(10) DEFAULT NULL COMMENT 'pass|fail|error',
+  `error_message` text,
+  `executed_by` varchar(36) DEFAULT NULL,
+  `executed_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_records_endpoint` (`endpoint_id`),
+  CONSTRAINT `fk_records_endpoint` FOREIGN KEY (`endpoint_id`) REFERENCES `api_endpoints` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

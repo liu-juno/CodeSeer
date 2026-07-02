@@ -144,7 +144,7 @@ function closeCreate() {
 
 const NO_ITERATION_ROUTES = [
   '/documents', '/standup', '/users', '/settings',
-  '/mcp-config', '/modules', '/webhooks',
+  '/mcp-config', '/modules', '/webhooks', '/api-endpoints',
 ]
 const showIterationSelector = computed(() =>
   !NO_ITERATION_ROUTES.some(r => route.path === r || route.path.startsWith(r + '/'))
@@ -165,6 +165,7 @@ const BREADCRUMB_MAP: Record<string, string> = {
   '/settings':      '设置',
   '/mcp-config':    'MCP 配置',
   '/modules':       '模块',
+  '/api-endpoints': 'API 管理',
   '/webhooks':      'Webhooks',
   '/projects':      '项目管理',
 }

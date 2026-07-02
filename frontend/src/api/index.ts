@@ -222,4 +222,42 @@ export const defectsApi = {
   listLogs: (id: string) => api.get(`/defects/${id}/logs`),
 }
 
+// API Endpoints Management
+export const apiEndpointsApi = {
+  // 环境
+  listEnvironments: (projectId: string) =>
+    api.get('/api-endpoints/environments', { params: { project_id: projectId } }),
+  createEnvironment: (data: any) =>
+    api.post('/api-endpoints/environments', data),
+  updateEnvironment: (id: string, data: any) =>
+    api.put(`/api-endpoints/environments/${id}`, data),
+  deleteEnvironment: (id: string) =>
+    api.delete(`/api-endpoints/environments/${id}`),
+
+  // 接口
+  list: (projectId: string, params?: { method?: string; module_id?: string; status?: string; search?: string }) =>
+    api.get('/api-endpoints/endpoints', { params: { project_id: projectId, ...params } }),
+  get: (id: string) => api.get(`/api-endpoints/endpoints/${id}`),
+  create: (data: any) => api.post('/api-endpoints/endpoints', data),
+  update: (id: string, data: any) => api.put(`/api-endpoints/endpoints/${id}`, data),
+  delete: (id: string) => api.delete(`/api-endpoints/endpoints/${id}`),
+  versions: (id: string) => api.get(`/api-endpoints/endpoints/${id}/versions`),
+
+  // 测试用例
+  listTestCases: (endpointId: string) => api.get(`/api-endpoints/endpoints/${endpointId}/test-cases`),
+  createTestCase: (endpointId: string, data: any) => api.post(`/api-endpoints/endpoints/${endpointId}/test-cases`, data),
+  updateTestCase: (id: string, data: any) => api.put(`/api-endpoints/test-cases/${id}`, data),
+  deleteTestCase: (id: string) => api.delete(`/api-endpoints/test-cases/${id}`),
+
+  // 在线测试
+  test: (endpointId: string, data: { environment_id: string; request_params?: string }) =>
+    api.post(`/api-endpoints/endpoints/${endpointId}/test`, data),
+  runTestCase: (caseId: string, environmentId: string) =>
+    api.post(`/api-endpoints/test-cases/${caseId}/run`, null, { params: { environment_id: environmentId } }),
+
+  // 测试记录
+  listTestRecords: (endpointId: string, limit = 50) =>
+    api.get(`/api-endpoints/endpoints/${endpointId}/test-records`, { params: { limit } }),
+}
+
 export default api

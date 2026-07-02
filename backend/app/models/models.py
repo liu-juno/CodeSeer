@@ -614,3 +614,116 @@ class ProjectMember(Base):
     __table_args__ = (
         UniqueConstraint('project_id', 'user_id', name='uk_project_user'),
     )
+
+
+# ── API 管理 ──────────────────────────────────────────────────────────────────
+
+class ApiEndpointStatus(str, enum.Enum):
+    DRAFT = "draft"
+    PUBLISHED = "published"
+    DEPRECATED = "deprecated"
+
+
+class ApiHttpMethod(str, enum.Enum):
+    GET = "GET"
+    POST = "POST"
+    PUT = "PUT"
+    DELETE = "DELETE"
+    PATCH = "PATCH"
+
+
+class ApiTestResult(str, enum.Enum):
+    PASS = "pass"
+    FAIL = "fail"
+    ERROR = "error"
+
+
+class ApiEndpoint(Base):
+    __tablename__ = "api_endpoints"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    project_id = Column(String(36), ForeignKey("projects.id"), nullable=False)
+    module_id = Column(String(36), ForeignKey("modules.id"), nullable=True)
+    method = Column(String(10), nullable=False)
+    path = Column(String(200), nullable=False)
+    summary = Column(String(200), nullable=True)
+    description = Column(Text, nullable=True)
+    request_schema = Column(Text, nullable=True)
+    response_schema = Column(Text, nullable=True)
+    headers = Column(Text, nullable=True)
+    status = Column(Enum(ApiEndpointStatus), default=ApiEndpointStatus.DRAFT)
+    version = Column(Integer, default=1)
+    created_by = Column(String(36), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    project = relationship("Project")
+    module = relationship("Module")
+    versions = relationship("ApiEndpointVersion", back_populates="endpoint", cascade="all, delete-orphan", order_by="ApiEndpointVersion.version.desc()")
+    test_cases = relationship("ApiTestCase", back_populates="endpoint", cascade="all, delete-orphan")
+    test_records = relationship("ApiTestRecord", back_populates="endpoint", cascade="all, delete-orphan")
+
+
+class ApiEndpointVersion(Base):
+    __tablename__ = "api_endpoint_versions"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    endpoint_id = Column(String(36), ForeignKey("api_endpoints.id"), nullable=False)
+    version = Column(Integer, nullable=False)
+    request_schema = Column(Text, nullable=True)
+    response_schema = Column(Text, nullable=True)
+    change_note = Column(String(500), nullable=True)
+    created_by = Column(String(36), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    endpoint = relationship("ApiEndpoint", back_populates="versions")
+
+
+class ApiEnvironment(Base):
+    __tablename__ = "api_environments"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    project_id = Column(String(36), ForeignKey("projects.id"), nullable=False)
+    name = Column(String(50), nullable=False)
+    base_url = Column(String(200), nullable=False)
+    variables = Column(Text, nullable=True)
+    is_default = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    project = relationship("Project")
+
+
+class ApiTestCase(Base):
+    __tablename__ = "api_test_cases"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    endpoint_id = Column(String(36), ForeignKey("api_endpoints.id"), nullable=False)
+    name = Column(String(200), nullable=False)
+    request_params = Column(Text, nullable=True)
+    expected_status = Column(Integer, nullable=True)
+    expected_response = Column(Text, nullable=True)
+    created_by = Column(String(36), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    endpoint = relationship("ApiEndpoint", back_populates="test_cases")
+
+
+class ApiTestRecord(Base):
+    __tablename__ = "api_test_records"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    endpoint_id = Column(String(36), ForeignKey("api_endpoints.id"), nullable=False)
+    test_case_id = Column(String(36), ForeignKey("api_test_cases.id"), nullable=True)
+    environment_id = Column(String(36), ForeignKey("api_environments.id"), nullable=True)
+    request_params = Column(Text, nullable=True)
+    response_status = Column(Integer, nullable=True)
+    response_body = Column(Text, nullable=True)
+    response_time_ms = Column(Integer, nullable=True)
+    result = Column(Enum(ApiTestResult), nullable=True)
+    error_message = Column(Text, nullable=True)
+    executed_by = Column(String(36), nullable=True)
+    executed_at = Column(DateTime, default=datetime.utcnow)
+
+    endpoint = relationship("ApiEndpoint", back_populates="test_records")

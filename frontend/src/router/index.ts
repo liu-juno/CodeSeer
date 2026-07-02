@@ -24,6 +24,7 @@ const router = createRouter({
         { path: 'standup', name: 'standup', component: () => import('@/views/Standup.vue') },
         { path: 'modules', name: 'modules', component: () => import('@/views/Modules.vue') },
         { path: 'documents', name: 'documents', component: () => import('@/views/Documents.vue') },
+        { path: 'api-endpoints', name: 'api-endpoints', component: () => import('@/views/ApiEndpoints.vue') },
         { path: 'webhooks', name: 'webhooks', component: () => import('@/views/Webhooks.vue') },
         { path: 'users', name: 'users', component: () => import('@/views/Users.vue') },
         { path: 'settings', name: 'settings', component: () => import('@/views/Settings.vue') },
